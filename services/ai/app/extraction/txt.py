@@ -16,7 +16,7 @@ def decode_text(data: bytes) -> tuple[str, str]:
     return str(best), best.encoding
 
 
-def extract_txt(data: bytes) -> tuple[list[Segment], str]:
+def extract_txt(data: bytes, deadline: float | None = None) -> tuple[list[Segment], str]:
     text, encoding = decode_text(data)
     text = text.replace("\r\n", "\n").replace("\r", "\n")
-    return segment_paragraphs(_BLANK_LINE.split(text), None, 0), encoding
+    return segment_paragraphs(_BLANK_LINE.split(text), None, 0, deadline=deadline), encoding

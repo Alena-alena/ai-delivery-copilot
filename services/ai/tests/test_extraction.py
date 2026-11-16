@@ -117,6 +117,15 @@ class TestFormats:
         with pytest.raises(ExtractionTimeout):
             extract_document(pdf, PDF, deadline=time.monotonic() - 1)
 
+    def test_expired_deadline_stops_docx_and_text_extraction_too(self):
+        past = time.monotonic() - 1
+        with pytest.raises(ExtractionTimeout):
+            extract_document(
+                make_docx(["First paragraph", "Second paragraph"]), DOCX, deadline=past
+            )
+        with pytest.raises(ExtractionTimeout):
+            extract_document(b"Some plain text that is long enough.", TXT, deadline=past)
+
     def test_a_future_deadline_does_not_interfere(self):
         pages = ["The first page has enough text.", "The second page also has text."]
         r = extract_document(make_pdf(pages), PDF, deadline=time.monotonic() + 60)

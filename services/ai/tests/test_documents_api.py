@@ -81,6 +81,26 @@ def test_body_over_the_limit_is_refused_without_a_content_length(client):
     assert r.json()["code"] == "FILE_TOO_LARGE"
 
 
+def test_busy_service_answers_429_instead_of_queueing_forever(client, monkeypatch):
+    import asyncio
+
+    from app.api.v1 import documents
+
+    monkeypatch.setattr(documents, "_slots", asyncio.Semaphore(0))  # every slot is taken
+    monkeypatch.setattr(documents, "SLOT_WAIT_S", 0.05)
+    r = post(client, b"A short text document for the test.", TXT)
+    assert r.status_code == 429
+    assert r.json()["code"] == "EXTRACTION_BUSY"
+
+
+def test_slot_is_released_after_a_failed_extraction(client):
+    from app.api.v1 import documents
+
+    for _ in range(documents._slots._value + 2):  # more failures than there are slots
+        assert post(client, b"not a pdf at all", PDF).status_code == 422
+    assert post(client, b"Readable text that should still be processed.", TXT).status_code == 200
+
+
 def test_missing_mime_is_a_validation_error(client):
     r = client.post("/v1/documents/extract", content=b"x", headers=AUTH)
     assert r.status_code == 422

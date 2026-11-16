@@ -27,9 +27,9 @@ def extract_document(data: bytes, mime: str, deadline: float | None = None) -> E
     if mime == PDF:
         segments, page_count = extract_pdf(data, deadline)
     elif mime == DOCX:
-        segments = extract_docx(data)
+        segments = extract_docx(data, deadline)
     elif mime == TXT:
-        segments, encoding = extract_txt(data)
+        segments, encoding = extract_txt(data, deadline)
     else:
         raise UnsupportedType(f"Unsupported type: {mime}")
 

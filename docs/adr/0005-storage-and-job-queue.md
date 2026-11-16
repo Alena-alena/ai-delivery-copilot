@@ -33,6 +33,13 @@ request, and it must survive an API restart.
 - Extraction is bounded: at most 300 PDF pages, three files parsed at once, and a 45 s work budget inside Python
   (below Nest's 60 s timeout). A worker thread cannot be cancelled from outside, so it stops itself and answers
   with a final `EXTRACTION_TIMEOUT`, which the queue does not retry.
+- The 45 s work budget starts when a request arrives (waiting for one of the three slots counts against it, and a wait
+  over 20 s is answered with a quick 429 `EXTRACTION_BUSY` that the queue retries) and is checked for every PDF page,
+  DOCX block and paragraph.
+- Known limit: a single call inside a parser (one pathological PDF object) cannot be interrupted, because a thread
+  cannot be killed. The real fix is to parse in a subprocess that is killed when the budget runs out; it is not
+  built yet. Until then three slow files can occupy every slot, while everything else gets a fast 429. Python is
+  stateless and does not know tenants, so per-tenant fairness is left to the per-project caps in NestJS.
 - Token verification distinguishes a bad token (401) from an auth outage such as an unreachable key set (503), so
   a Supabase blip does not sign everyone out.
 - If queuing fails right after an upload the document is marked failed (retryable) rather than stuck.

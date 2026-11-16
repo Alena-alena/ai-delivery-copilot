@@ -52,7 +52,9 @@ def extract_pdf(data: bytes, deadline: float | None = None) -> tuple[list[Segmen
         except Exception:  # noqa: BLE001 - one unreadable page must not fail the whole file
             text = ""
         visible += len("".join(text.split()))
-        segments.extend(segment_paragraphs(_BLANK_LINE.split(text), number, len(segments)))
+        segments.extend(
+            segment_paragraphs(_BLANK_LINE.split(text), number, len(segments), deadline=deadline)
+        )
 
     if visible < MIN_TEXT_CHARS:
         raise PdfNoTextLayer("The PDF has no text layer (it looks like a scan)")

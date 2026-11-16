@@ -1,6 +1,8 @@
 import re
+import time
 from dataclasses import dataclass
 
+from app.extraction.errors import ExtractionTimeout
 from app.extraction.tokens import count_tokens, split_by_tokens
 
 # A segment is the unit an AI answer cites ("segment 12"), so it should be small enough to point at
@@ -49,7 +51,11 @@ def _pieces(paragraph: str, limit: int) -> list[str]:
 
 
 def segment_paragraphs(
-    paragraphs: list[str], page: int | None, start_index: int, limit: int = MAX_SEGMENT_TOKENS
+    paragraphs: list[str],
+    page: int | None,
+    start_index: int,
+    limit: int = MAX_SEGMENT_TOKENS,
+    deadline: float | None = None,
 ) -> list[Segment]:
     """Packs consecutive paragraphs into segments of at most `limit` tokens (never across pages)."""
     segments: list[Segment] = []
@@ -64,6 +70,8 @@ def segment_paragraphs(
             current = ""
 
     for raw in paragraphs:
+        if deadline is not None and time.monotonic() > deadline:
+            raise ExtractionTimeout("The document took too long to process")
         paragraph = clean(raw)
         if not paragraph:
             continue
