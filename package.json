@@ -1,0 +1,24 @@
+{
+  "name": "ai-delivery-copilot",
+  "version": "1.0.0",
+  "description": "",
+  "private": "true",
+  "scripts": {
+    "format": "prettier --write .",
+    "format-check": "prettier --check .",
+    "dev-web": "pnpm --filter web dev",
+    "dev-api": "pnpm --filter api start:dev"
+  },
+  "type": "module",
+  "packageManager": "pnpm@12.21.0",
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "12.21.0",
+      "onFail": "download"
+    }
+  },
+  "devDependencies": {
+    "prettier": "^3.10.1"
+  }
+}
