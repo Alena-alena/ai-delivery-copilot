@@ -6,6 +6,12 @@ import { validateEnv, type Env } from './config/env.js';
 import { LOG_REDACT } from './common/log-redact.js';
 import { resolveRequestId } from './common/request-id.js';
 import { AiModule } from './ai/ai.module.js';
+import { AuthModule } from './auth/auth.module.js';
+import { DbModule } from './db/db.module.js';
+import { DocumentsModule } from './documents/documents.module.js';
+import { JobsModule } from './jobs/jobs.module.js';
+import { StorageModule } from './storage/storage.module.js';
+import { ProjectsModule } from './projects/projects.module.js';
 import { DevController } from './dev/dev.controller.js';
 import { DevOnlyGuard } from './dev/dev-only.guard.js';
 import { HealthController } from './health/health.controller.js';
@@ -13,6 +19,12 @@ import { HealthController } from './health/health.controller.js';
 @Module({
   imports: [
     AiModule,
+    AuthModule,
+    DbModule,
+    ProjectsModule,
+    DocumentsModule,
+    JobsModule,
+    StorageModule,
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: ['.env', '../../.env'],

@@ -4,3 +4,4 @@ build
 pnpm-lock.yaml
 samples
 .venv
+apps/api/drizzle/

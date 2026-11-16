@@ -8,7 +8,8 @@ import { ConfigService } from '@nestjs/config';
 import type { Env } from '../config/env.js';
 
 // Upstream statuses whose code/message are meaningful to our callers and are passed through.
-const PASSTHROUGH_STATUSES = new Set([429, 502, 504]);
+// 413/415/422 are "this document cannot be processed" answers with a typed code (see contracts).
+const PASSTHROUGH_STATUSES = new Set([413, 415, 422, 429, 502, 504]);
 
 @Injectable()
 export class AiClient {
@@ -26,6 +27,23 @@ export class AiClient {
     timeoutMs?: number,
   ): Promise<T> {
     return this.request<T>('POST', path, requestId, body, timeoutMs);
+  }
+
+  /** Sends raw bytes (a file) as the request body; `query` carries small parameters like the mime type. */
+  postBytes<T>(
+    path: string,
+    bytes: Uint8Array,
+    requestId: string,
+    options: { query?: Record<string, string>; timeoutMs?: number } = {},
+  ): Promise<T> {
+    const qs = options.query ? `?${new URLSearchParams(options.query)}` : '';
+    return this.request<T>(
+      'POST',
+      `${path}${qs}`,
+      requestId,
+      bytes,
+      options.timeoutMs,
+    );
   }
 
   /** Calls the internal Python service; forwards token and request id, enforces a timeout. */
@@ -48,7 +66,10 @@ export class AiClient {
       headers,
       signal: AbortSignal.timeout(timeoutMs),
     };
-    if (body !== undefined) {
+    if (body instanceof Uint8Array) {
+      headers['content-type'] = 'application/octet-stream';
+      init.body = body as BodyInit;
+    } else if (body !== undefined) {
       headers['content-type'] = 'application/json';
       init.body = JSON.stringify(body);
     }

@@ -4,7 +4,9 @@ import {
   ExceptionFilter,
   HttpException,
   HttpStatus,
+  PayloadTooLargeException,
 } from '@nestjs/common';
+import { DOCUMENT_ERROR_MESSAGES } from '@copilot/contracts';
 import type { Request, Response } from 'express';
 import { Logger } from 'nestjs-pino';
 import { getRequestId } from './request-id.js';
@@ -43,7 +45,11 @@ export class AllExceptionsFilter implements ExceptionFilter {
     let message = 'Internal server error';
     let code =
       STATUS_CODES[status] ?? (status >= 500 ? 'INTERNAL_ERROR' : 'ERROR');
-    if (exception instanceof HttpException) {
+    if (exception instanceof PayloadTooLargeException) {
+      // thrown by the upload interceptor when a file exceeds the size limit
+      code = 'FILE_TOO_LARGE';
+      message = DOCUMENT_ERROR_MESSAGES.FILE_TOO_LARGE;
+    } else if (exception instanceof HttpException) {
       const response = exception.getResponse();
       if (typeof response === 'string') {
         message = response;

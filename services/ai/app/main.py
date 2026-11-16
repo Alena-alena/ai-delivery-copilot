@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse
 
 from app.api.v1.router import router as v1_router
 from app.config import get_settings
+from app.extraction.errors import ExtractionError
 from app.llm.client import LLMClient
 from app.llm.errors import LLMError
 from app.logging import configure_logging
@@ -70,7 +71,13 @@ def _error(request: Request, status: int, code: str, message: str) -> JSONRespon
     )
 
 
-_CODES = {401: "UNAUTHORIZED", 404: "NOT_FOUND", 422: "VALIDATION_ERROR"}
+_CODES = {
+    401: "UNAUTHORIZED",
+    404: "NOT_FOUND",
+    413: "FILE_TOO_LARGE",
+    415: "UNSUPPORTED_TYPE",
+    422: "VALIDATION_ERROR",
+}
 
 
 @app.exception_handler(HTTPException)
@@ -81,6 +88,13 @@ async def http_exception_handler(request: Request, exc: HTTPException):
 @app.exception_handler(LLMError)
 async def llm_error_handler(request: Request, exc: LLMError):
     log.warning("llm call failed", code=exc.code, error=str(exc))
+    return _error(request, exc.http_status, exc.code, str(exc))
+
+
+@app.exception_handler(ExtractionError)
+async def extraction_error_handler(request: Request, exc: ExtractionError):
+    # A bad document is a normal outcome, not a server fault: no stack trace, just the typed code.
+    log.info("document not extractable", code=exc.code)
     return _error(request, exc.http_status, exc.code, str(exc))
 
 

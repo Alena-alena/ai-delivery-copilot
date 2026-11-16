@@ -11,6 +11,7 @@ import { z } from 'zod';
 import { AiClient } from '../ai/ai.client.js';
 import { getRequestId } from '../common/request-id.js';
 import { DevOnlyGuard } from './dev-only.guard.js';
+import { Public } from '../auth/public.decorator.js';
 
 // Timeout budget: LiteLLM 60 s (infra/litellm/config.yaml) < Python 70 s < this 80 s,
 // so the innermost layer's typed error always wins and nobody keeps billing after we give up.
@@ -32,6 +33,8 @@ export interface LlmPingResult {
   latency_ms: number;
 }
 
+// Public on purpose: gated by ENABLE_DEV_ENDPOINTS (DevOnlyGuard), not by login. Off by default.
+@Public()
 @Controller('dev')
 @UseGuards(DevOnlyGuard)
 export class DevController {
