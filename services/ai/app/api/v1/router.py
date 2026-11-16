@@ -1,0 +1,10 @@
+from fastapi import APIRouter, Depends
+
+from app.security import require_internal_token
+
+router = APIRouter(prefix="/v1", dependencies=[Depends(require_internal_token)])
+
+
+@router.get("/ping")
+def ping() -> dict[str, str]:
+    return {"status": "ok"}

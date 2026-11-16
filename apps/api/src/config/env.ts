@@ -5,6 +5,9 @@ export const envSchema = z.object({
     .enum(['development', 'test', 'production'])
     .default('development'),
   PORT: z.coerce.number().int().positive().default(3000),
+  AI_SERVICE_URL: z.url().default('http://localhost:8000'),
+  AI_INTERNAL_TOKEN: z.string().min(16),
+  AI_TIMEOUT_MS: z.coerce.number().int().positive().default(10_000),
   LOG_LEVEL: z
     .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace'])
     .default('info'),

@@ -2,11 +2,14 @@ import { randomUUID } from 'node:crypto';
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { LoggerModule } from 'nestjs-pino';
+import { SystemController } from './system/system.controller.js';
 import { validateEnv, type Env } from './config/env.js';
+import { AiModule } from './ai/ai.module.js';
 import { HealthController } from './health/health.controller.js';
 
 @Module({
   imports: [
+    AiModule,
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: ['.env', '../../.env'],
@@ -35,6 +38,6 @@ import { HealthController } from './health/health.controller.js';
       }),
     }),
   ],
-  controllers: [HealthController],
+  controllers: [HealthController, SystemController],
 })
 export class AppModule {}
