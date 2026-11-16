@@ -9,3 +9,7 @@
 - uv: 0.11.16
 - Docker: Docker version 29.5.2, build 79eb04c
 - Supabase CLI: 3.1.0
+
+## Git branch
+- Work happens on `development`. `development` is the default branch on GitHub.
+- `main` is not used.
