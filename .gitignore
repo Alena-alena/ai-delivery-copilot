@@ -6,3 +6,10 @@ node_modules/
 __pycache__/
 dist/
 .DS_Store
+*.log
+.vite/
+coverage/
+*.tsbuildinfo
+
+# Uploaded files (local storage)
+storage/

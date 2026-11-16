@@ -1,0 +1,33 @@
+{
+  "name": "ai-delivery-copilot",
+  "version": "1.0.0",
+  "description": "",
+  "private": true,
+  "scripts": {
+    "format": "prettier --write .",
+    "format-check": "prettier --check .",
+    "dev-web": "pnpm contracts && pnpm --filter web dev",
+    "dev-api": "pnpm contracts && pnpm --filter api start:dev",
+    "infra:up": "docker compose --env-file .env -f infra/docker-compose.yml up -d --wait",
+    "infra:down": "docker compose --env-file .env -f infra/docker-compose.yml down",
+    "dev-ai": "cd services/ai && uv run uvicorn app.main:app --reload --port 8000",
+    "dev": "pnpm infra:up && pnpm contracts && concurrently -k -n api,ai,web -c blue,magenta,green \"pnpm dev-api\" \"pnpm dev-ai\" \"pnpm dev-web\"",
+    "lint": "pnpm contracts && pnpm -r --if-present lint && cd services/ai && uv run ruff check .",
+    "test": "pnpm contracts && pnpm -r --if-present test && cd services/ai && uv run pytest -q",
+    "contracts": "pnpm --filter @copilot/contracts build",
+    "build": "pnpm -r build"
+  },
+  "type": "module",
+  "packageManager": "pnpm@12.21.0",
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "12.21.0",
+      "onFail": "download"
+    }
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.7",
+    "prettier": "^3.10.1"
+  }
+}
