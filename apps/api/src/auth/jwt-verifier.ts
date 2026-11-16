@@ -54,7 +54,9 @@ export class JwtVerifier {
       if (BAD_TOKEN_ERRORS.some((c) => e instanceof c)) {
         throw new InvalidTokenError('Invalid or expired token');
       }
-      throw new AuthUnavailableError('Could not verify the token right now');
+      throw new AuthUnavailableError('Could not verify the token right now', {
+        cause: e,
+      });
     }
   }
 }

@@ -44,10 +44,10 @@ export class AuthGuard implements CanActivate {
       }
       if (e instanceof AuthUnavailableError) {
         // 503, not 401: clients keep the session and retry instead of signing the user out
-        throw new ServiceUnavailableException({
-          code: 'AUTH_UNAVAILABLE',
-          message: e.message,
-        });
+        throw new ServiceUnavailableException(
+          { code: 'AUTH_UNAVAILABLE', message: e.message },
+          { cause: e.cause },
+        );
       }
       throw e;
     }
