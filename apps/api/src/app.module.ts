@@ -5,6 +5,8 @@ import { LoggerModule } from 'nestjs-pino';
 import { SystemController } from './system/system.controller.js';
 import { validateEnv, type Env } from './config/env.js';
 import { AiModule } from './ai/ai.module.js';
+import { DevController } from './dev/dev.controller.js';
+import { DevOnlyGuard } from './dev/dev-only.guard.js';
 import { HealthController } from './health/health.controller.js';
 
 @Module({
@@ -38,6 +40,7 @@ import { HealthController } from './health/health.controller.js';
       }),
     }),
   ],
-  controllers: [HealthController, SystemController],
+  controllers: [HealthController, SystemController, DevController],
+  providers: [DevOnlyGuard],
 })
 export class AppModule {}

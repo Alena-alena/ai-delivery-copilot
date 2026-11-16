@@ -24,3 +24,17 @@
 - Alias `default-llm` → `openai/gpt-5.6-luna`; retries 2, timeout 60 s.
 - AI service uses a virtual key (`LITELLM_VIRTUAL_KEY`), budget 5 USD / 30 days; master key stays out of app code.
 - UI/API bound to 127.0.0.1:4000. Apps run locally; Docker only for infrastructure. `pnpm dev` starts everything.
+
+## LLM client and cost (phase 1, session 4)
+
+- Only `services/ai/app/llm/client.py` talks to an LLM, always via LiteLLM and the alias `default-llm`.
+- Cost is read from the `x-litellm-response-cost` response header; it matched LiteLLM's spend log.
+- `request_id` and `operation` are sent as `metadata.spend_logs_metadata` (plus a tag) so a cost can be
+  traced to a request. Plain `metadata.request_id` is NOT kept by LiteLLM's spend log.
+- Observed price of `gpt-5.6-luna` (derived from three calls, not read from a price list):
+  about $0.20 per 1M input tokens and $1.20 per 1M output tokens. Re-check against OpenAI's pricing page.
+  A ~15-token ping costs ~$0.000008.
+- Typed errors: LLMTimeout 504, LLMRateLimited 429, LLMProviderError 502, LLMInvalidResponse 502.
+  NestJS passes 429/502/504 through with the Python code; other upstream errors become `AI_ERROR` 502.
+- `POST /api/dev/llm-ping` answers 404 unless `NODE_ENV=development`; the React route `/dev/llm`
+  exists only in the Vite dev build.

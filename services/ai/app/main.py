@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 
 from app.api.v1.router import router as v1_router
 from app.config import get_settings
+from app.llm.errors import LLMError
 from app.logging import configure_logging
 
 settings = get_settings()
@@ -49,6 +50,12 @@ _CODES = {401: "UNAUTHORIZED", 404: "NOT_FOUND", 422: "VALIDATION_ERROR"}
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
     return _error(request, exc.status_code, _CODES.get(exc.status_code, "ERROR"), str(exc.detail))
+
+
+@app.exception_handler(LLMError)
+async def llm_error_handler(request: Request, exc: LLMError):
+    log.warning("llm call failed", code=exc.code, error=str(exc))
+    return _error(request, exc.http_status, exc.code, str(exc))
 
 
 @app.exception_handler(RequestValidationError)

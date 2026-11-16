@@ -46,3 +46,22 @@ describe('AiClient', () => {
     );
   });
 });
+
+describe('AiClient errors from Python', () => {
+  it('passes through 429 with the upstream code', async () => {
+    const body = JSON.stringify({
+      code: 'LLM_RATE_LIMITED',
+      message: 'slow down',
+    });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(new Response(body, { status: 429 })),
+    );
+    await expect(
+      new AiClient(config).post('/x', {}, 'r'),
+    ).rejects.toMatchObject({
+      status: 429,
+      response: { code: 'LLM_RATE_LIMITED' },
+    });
+  });
+});
