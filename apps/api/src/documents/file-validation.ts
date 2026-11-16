@@ -26,6 +26,7 @@ const STATUS: Partial<Record<DocumentErrorCode, number>> = {
   FILE_TOO_LARGE: 413,
   UNSUPPORTED_TYPE: 415,
   FILE_CORRUPTED: 422,
+  PROJECT_STORAGE_LIMIT: 409,
 };
 
 export function rejectDocument(code: DocumentErrorCode): never {
@@ -87,7 +88,11 @@ export async function detectDocument(
     }
     case 'txt': {
       // Plain text has no magic bytes: it must not look like any known binary format or contain NULs.
-      if (sniffed || data.subarray(0, 8000).includes(0)) {
+      // UTF-16 (Windows "Unicode" text) legitimately contains NULs, so a UTF-16 byte-order mark is allowed.
+      const utf16Bom =
+        (data[0] === 0xff && data[1] === 0xfe) ||
+        (data[0] === 0xfe && data[1] === 0xff);
+      if (sniffed || (!utf16Bom && data.subarray(0, 8000).includes(0))) {
         rejectDocument('UNSUPPORTED_TYPE');
       }
       return { ext: 'txt', mime: MIME.txt };

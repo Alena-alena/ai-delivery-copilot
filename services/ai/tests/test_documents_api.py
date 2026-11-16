@@ -70,6 +70,17 @@ def test_oversized_body_is_413(client):
     assert r.json()["code"] == "FILE_TOO_LARGE"
 
 
+def test_body_over_the_limit_is_refused_without_a_content_length(client):
+    # a generator body is sent chunked: there is no Content-Length to check up front
+    def chunks():
+        for _ in range(12):
+            yield b"a" * (1024 * 1024)
+
+    r = client.post("/v1/documents/extract", params={"mime": TXT}, content=chunks(), headers=AUTH)
+    assert r.status_code == 413
+    assert r.json()["code"] == "FILE_TOO_LARGE"
+
+
 def test_missing_mime_is_a_validation_error(client):
     r = client.post("/v1/documents/extract", content=b"x", headers=AUTH)
     assert r.status_code == 422

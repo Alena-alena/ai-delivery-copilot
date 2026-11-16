@@ -24,28 +24,38 @@ async function accessToken(refresh = false): Promise<string | null> {
   return data.session?.access_token ?? null;
 }
 
+/**
+ * Runs an authenticated call. On 401 the token may just have expired: refresh the session once and retry.
+ * If it still fails the session is dead, so sign out; the protected routes then send the user to /login.
+ * Every call that carries the token (JSON requests, downloads, uploads) goes through here.
+ */
+async function withFreshToken<T extends { status: number }>(
+  run: (token: string | null) => Promise<T>,
+): Promise<T> {
+  let token = await accessToken();
+  let result = await run(token);
+  if (result.status === 401 && token) {
+    token = await accessToken(true);
+    result = token ? await run(token) : result;
+    if (result.status === 401) await supabase.auth.signOut();
+  }
+  return result;
+}
+
 async function send(path: string, init: RequestInit | undefined, token: string | null) {
   const headers = new Headers(init?.headers);
   if (token) headers.set('authorization', `Bearer ${token}`);
   return fetch(`/api${path}`, { ...init, headers });
 }
 
+async function failure(res: Response): Promise<ApiError> {
+  const body = (await res.json().catch(() => null)) as ApiErrorBody | null;
+  return new ApiError(res.status, body ?? { code: 'UNKNOWN', message: res.statusText });
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  let token = await accessToken();
-  let res = await send(path, init, token);
-
-  if (res.status === 401 && token) {
-    // Token may have just expired: refresh once and retry. If it still fails the session is
-    // dead, so sign out; the protected routes then send the user to /login.
-    token = await accessToken(true);
-    res = token ? await send(path, init, token) : res;
-    if (res.status === 401) await supabase.auth.signOut();
-  }
-
-  if (!res.ok) {
-    const body = (await res.json().catch(() => null)) as ApiErrorBody | null;
-    throw new ApiError(res.status, body ?? { code: 'UNKNOWN', message: res.statusText });
-  }
+  const res = await withFreshToken((token) => send(path, init, token));
+  if (!res.ok) throw await failure(res);
   if (res.status === 204) return undefined as T;
   return (await res.json()) as T;
 }
@@ -76,13 +86,14 @@ export function apiDelete(path: string): Promise<void> {
 
 /** Downloads a file that needs the sign-in token (a plain link cannot send the Authorization header). */
 export async function apiBlob(path: string): Promise<Blob> {
-  const token = await accessToken();
-  const res = await send(path, undefined, token);
-  if (!res.ok) {
-    const body = (await res.json().catch(() => null)) as ApiErrorBody | null;
-    throw new ApiError(res.status, body ?? { code: 'UNKNOWN', message: res.statusText });
-  }
+  const res = await withFreshToken((token) => send(path, undefined, token));
+  if (!res.ok) throw await failure(res);
   return res.blob();
+}
+
+interface UploadResult {
+  status: number;
+  body: unknown;
 }
 
 /** Uploads one file with progress (fetch cannot report upload progress, XMLHttpRequest can). */
@@ -91,35 +102,34 @@ export async function apiUpload<T>(
   file: File,
   onProgress: (fraction: number) => void,
 ): Promise<T> {
-  const token = await accessToken();
-  return new Promise<T>((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open('POST', `/api${path}`);
-    if (token) xhr.setRequestHeader('authorization', `Bearer ${token}`);
-    xhr.upload.onprogress = (e) => {
-      if (e.lengthComputable) onProgress(e.loaded / e.total);
-    };
-    xhr.onload = () => {
-      let body: unknown = null;
-      try {
-        body = JSON.parse(xhr.responseText);
-      } catch {
-        // not JSON: handled below
-      }
-      if (xhr.status >= 200 && xhr.status < 300) resolve(body as T);
-      else {
-        reject(
-          new ApiError(
-            xhr.status,
-            (body as ApiErrorBody | null) ?? { code: 'UNKNOWN', message: xhr.statusText },
-          ),
-        );
-      }
-    };
-    xhr.onerror = () =>
-      reject(new ApiError(0, { code: 'NETWORK_ERROR', message: 'Network error during upload' }));
-    const form = new FormData();
-    form.append('file', file);
-    xhr.send(form);
-  });
+  const attempt = (token: string | null) =>
+    new Promise<UploadResult>((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', `/api${path}`);
+      if (token) xhr.setRequestHeader('authorization', `Bearer ${token}`);
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) onProgress(e.loaded / e.total);
+      };
+      xhr.onload = () => {
+        let body: unknown = null;
+        try {
+          body = JSON.parse(xhr.responseText);
+        } catch {
+          // not JSON: handled by the caller
+        }
+        resolve({ status: xhr.status, body });
+      };
+      xhr.onerror = () =>
+        reject(new ApiError(0, { code: 'NETWORK_ERROR', message: 'Network error during upload' }));
+      const form = new FormData();
+      form.append('file', file);
+      xhr.send(form);
+    });
+
+  const { status, body } = await withFreshToken(attempt);
+  if (status >= 200 && status < 300) return body as T;
+  throw new ApiError(
+    status,
+    (body as ApiErrorBody | null) ?? { code: 'UNKNOWN', message: `Upload failed (${status})` },
+  );
 }

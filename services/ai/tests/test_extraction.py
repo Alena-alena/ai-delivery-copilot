@@ -1,4 +1,5 @@
 import io
+import time
 from pathlib import Path
 
 import pytest
@@ -8,12 +9,15 @@ from pypdf import PdfWriter
 
 from app.extraction.errors import (
     EmptyDocument,
+    ExtractionTimeout,
     FileCorrupted,
     PdfEncrypted,
     PdfNoTextLayer,
+    TooManyPages,
     UnsupportedType,
 )
 from app.extraction.extract import DOCX, PDF, TXT, extract_document
+from app.extraction.pdf import MAX_PAGES
 from app.extraction.segmentation import MAX_SEGMENT_TOKENS, segment_paragraphs
 from app.extraction.tokens import count_tokens
 
@@ -98,6 +102,25 @@ class TestFormats:
     def test_utf8_with_bom_text(self):
         r = extract_document("﻿Привет, мир! Это тест.".encode(), TXT)
         assert r.segments[0].text.startswith("Привет")
+
+    def test_utf16_text_with_bom_is_decoded(self):
+        raw = b"\xff\xfe" + "Требования клиента".encode("utf-16-le")
+        r = extract_document(raw, TXT)
+        assert "Требования клиента" in r.segments[0].text
+
+    def test_pdf_over_the_page_limit_is_refused_before_parsing_pages(self):
+        with pytest.raises(TooManyPages):
+            extract_document(make_pdf(["p"] * (MAX_PAGES + 1)), PDF)
+
+    def test_expired_deadline_stops_pdf_extraction(self):
+        pdf = make_pdf(["one", "two", "three"])
+        with pytest.raises(ExtractionTimeout):
+            extract_document(pdf, PDF, deadline=time.monotonic() - 1)
+
+    def test_a_future_deadline_does_not_interfere(self):
+        pages = ["The first page has enough text.", "The second page also has text."]
+        r = extract_document(make_pdf(pages), PDF, deadline=time.monotonic() + 60)
+        assert r.page_count == 2
 
     def test_encrypted_pdf(self):
         writer = PdfWriter()

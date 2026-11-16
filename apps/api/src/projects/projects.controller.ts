@@ -15,13 +15,10 @@ import {
   type CreateProjectInput,
   type UpdateProjectInput,
 } from '@copilot/contracts';
-import { z } from 'zod';
 import type { AuthUser } from '../auth/auth.types.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
-import { ZodValidationPipe } from '../common/zod-validation.pipe.js';
+import { ZodValidationPipe, uuidParam } from '../common/zod-validation.pipe.js';
 import { ProjectsService } from './projects.service.js';
-
-const idPipe = new ZodValidationPipe(z.uuid());
 
 /** Every route needs a valid token (global AuthGuard); the user always comes from the token. */
 @Controller('projects')
@@ -44,14 +41,14 @@ export class ProjectsController {
   }
 
   @Get(':id')
-  get(@CurrentUser() user: AuthUser, @Param('id', idPipe) id: string) {
+  get(@CurrentUser() user: AuthUser, @Param('id', uuidParam) id: string) {
     return this.projects.get(user.id, id);
   }
 
   @Patch(':id')
   update(
     @CurrentUser() user: AuthUser,
-    @Param('id', idPipe) id: string,
+    @Param('id', uuidParam) id: string,
     @Body(new ZodValidationPipe(updateProjectSchema)) body: UpdateProjectInput,
   ) {
     return this.projects.update(user.id, id, body);
@@ -59,7 +56,10 @@ export class ProjectsController {
 
   @Delete(':id')
   @HttpCode(204)
-  async remove(@CurrentUser() user: AuthUser, @Param('id', idPipe) id: string) {
+  async remove(
+    @CurrentUser() user: AuthUser,
+    @Param('id', uuidParam) id: string,
+  ) {
     await this.projects.remove(user.id, id);
   }
 }

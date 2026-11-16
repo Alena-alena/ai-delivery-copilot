@@ -26,3 +26,13 @@ class PdfEncrypted(ExtractionError):
 
 class EmptyDocument(ExtractionError):
     code = "EMPTY_DOCUMENT"
+
+
+class TooManyPages(ExtractionError):
+    code = "TOO_MANY_PAGES"
+
+
+class ExtractionTimeout(ExtractionError):
+    """The work budget ran out. Final, not retried: running it again would hit the same limit."""
+
+    code = "EXTRACTION_TIMEOUT"

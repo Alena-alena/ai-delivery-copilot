@@ -53,5 +53,6 @@ export async function downloadDocument(projectId: string, doc: Document): Promis
   a.href = url;
   a.download = doc.name;
   a.click();
-  URL.revokeObjectURL(url);
+  // Some browsers start the download asynchronously; revoking at once could cancel it.
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }

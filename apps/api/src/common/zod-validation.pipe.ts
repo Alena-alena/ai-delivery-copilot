@@ -3,7 +3,7 @@ import {
   Injectable,
   type PipeTransform,
 } from '@nestjs/common';
-import type { ZodType } from 'zod';
+import { z, type ZodType } from 'zod';
 
 /** Validates (and parses) a body, query or param with a Zod schema, e.g. one from @copilot/contracts. */
 @Injectable()
@@ -21,3 +21,6 @@ export class ZodValidationPipe<T> implements PipeTransform<unknown, T> {
     });
   }
 }
+
+/** For `:id` route parameters: a malformed id is a 400 before any query runs. */
+export const uuidParam = new ZodValidationPipe(z.uuid());

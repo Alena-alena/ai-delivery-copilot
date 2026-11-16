@@ -1,3 +1,4 @@
+import { ConfigService } from '@nestjs/config';
 import { mkdtemp, readdir, rm } from 'node:fs/promises';
 import { readFileSync } from 'node:fs';
 import os from 'node:os';
@@ -25,6 +26,7 @@ const sample = (name: string) =>
 let ctx: Awaited<ReturnType<typeof createTestApp>>;
 let storageDir: string;
 const enqueueExtract = vi.fn<(id: string) => Promise<void>>();
+const limits = { docs: 3, mb: 200 };
 
 const files = async () =>
   (await readdir(storageDir, { recursive: true, withFileTypes: true })).filter(
@@ -63,6 +65,13 @@ beforeAll(async () => {
         useValue: new LocalStorageService(storageDir),
       },
       { provide: DocumentJobs, useValue: { enqueueExtract } },
+      {
+        provide: ConfigService,
+        useValue: {
+          get: (key: string) =>
+            key === 'PROJECT_MAX_DOCUMENTS' ? limits.docs : limits.mb,
+        },
+      },
     ],
   });
 });
@@ -71,6 +80,8 @@ afterAll(async () => {
   await rm(storageDir, { recursive: true, force: true });
 });
 beforeEach(() => {
+  limits.docs = 3;
+  limits.mb = 200;
   enqueueExtract.mockReset().mockResolvedValue(undefined);
 });
 
@@ -208,5 +219,65 @@ describe('POST /api/projects/:id/documents', () => {
       status: 'extraction_failed',
       errorCode: 'EXTRACTION_FAILED',
     });
+  });
+});
+
+describe('per-project upload caps', () => {
+  const pdf = () => sample('01_clinicbook_requirements_en.pdf');
+
+  it('refuses a file beyond the document count with 409 and stores nothing', async () => {
+    const projectId = await createProject();
+    for (let i = 0; i < 3; i++) {
+      expect((await upload(projectId, pdf(), `d${i}.pdf`)).status).toBe(201);
+    }
+    const before = (await files()).length;
+    const res = await upload(projectId, pdf(), 'one-too-many.pdf');
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe('PROJECT_STORAGE_LIMIT');
+    expect((await files()).length).toBe(before); // the file was removed again
+    const rows = await ctx.db.select().from(documents);
+    expect(rows.filter((r) => r.projectId === projectId)).toHaveLength(3);
+  });
+
+  it('refuses a file that would exceed the total size cap', async () => {
+    limits.docs = 10;
+    limits.mb = 1; // five 197 KB scans fit (985 KB), a sixth does not
+    const projectId = await createProject();
+    const scan = sample('05_scanned_addendum_no_text.pdf');
+    for (let i = 0; i < 5; i++) {
+      expect((await upload(projectId, scan, `s${i}.pdf`)).status).toBe(201);
+    }
+    const res = await upload(projectId, scan, 's5.pdf');
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe('PROJECT_STORAGE_LIMIT');
+  });
+
+  it('counts per project: another project is not affected', async () => {
+    const full = await createProject();
+    for (let i = 0; i < 3; i++) await upload(full, pdf(), `d${i}.pdf`);
+    const other = await createProject();
+    expect((await upload(other, pdf(), 'fresh.pdf')).status).toBe(201);
+  });
+
+  it('holds the cap under simultaneous uploads', async () => {
+    const projectId = await createProject();
+    const results = await Promise.all(
+      Array.from({ length: 6 }, (_, i) =>
+        upload(projectId, pdf(), `p${i}.pdf`),
+      ),
+    );
+    expect(results.filter((r) => r.status === 201)).toHaveLength(3);
+    expect(results.filter((r) => r.status === 409)).toHaveLength(3);
+  });
+
+  it('accepts a UTF-16 text file (Windows "Unicode" .txt)', async () => {
+    const projectId = await createProject();
+    const utf16 = Buffer.concat([
+      Buffer.from([0xff, 0xfe]),
+      Buffer.from('Требования клиента', 'utf16le'),
+    ]);
+    const res = await upload(projectId, utf16, 'notes.txt');
+    expect(res.status).toBe(201);
+    expect(res.body.mime).toBe('text/plain');
   });
 });

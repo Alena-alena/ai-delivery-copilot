@@ -26,7 +26,15 @@ request, and it must survive an API restart.
 ## Consequences
 
 - Upload validates by content (magic bytes), so the extension cannot lie; limits are enforced twice (NestJS 10 MB,
-  Python 11 MB).
+  Python 11 MB, and Python stops reading a body as soon as it passes its limit).
+- Each project is capped at `PROJECT_MAX_DOCUMENTS` files (50) and `PROJECT_MAX_STORAGE_MB` (200) in total; failed and
+  unreadable files count too. The check and the insert run under a per-project advisory lock, so simultaneous
+  uploads cannot both slip under the cap.
+- Extraction is bounded: at most 300 PDF pages, three files parsed at once, and a 45 s work budget inside Python
+  (below Nest's 60 s timeout). A worker thread cannot be cancelled from outside, so it stops itself and answers
+  with a final `EXTRACTION_TIMEOUT`, which the queue does not retry.
+- Token verification distinguishes a bad token (401) from an auth outage such as an unreachable key set (503), so
+  a Supabase blip does not sign everyone out.
 - If queuing fails right after an upload the document is marked failed (retryable) rather than stuck.
 - The text limit per project (`PROJECT_TEXT_TOKEN_LIMIT`, default 150k tokens) is checked inside the save
   transaction under a per-project advisory lock.

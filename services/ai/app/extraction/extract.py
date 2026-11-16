@@ -20,12 +20,12 @@ class ExtractionResult:
     encoding: str | None
 
 
-def extract_document(data: bytes, mime: str) -> ExtractionResult:
+def extract_document(data: bytes, mime: str, deadline: float | None = None) -> ExtractionResult:
     """Turns a file into text segments. Raises an ExtractionError subclass for files we cannot read."""
     page_count: int | None = None
     encoding: str | None = None
     if mime == PDF:
-        segments, page_count = extract_pdf(data)
+        segments, page_count = extract_pdf(data, deadline)
     elif mime == DOCX:
         segments = extract_docx(data)
     elif mime == TXT:

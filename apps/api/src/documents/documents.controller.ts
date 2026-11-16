@@ -14,16 +14,13 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { DOCUMENT_MAX_BYTES } from '@copilot/contracts';
-import { z } from 'zod';
 import type { AuthUser } from '../auth/auth.types.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
-import { ZodValidationPipe } from '../common/zod-validation.pipe.js';
+import { uuidParam } from '../common/zod-validation.pipe.js';
 import {
   DocumentsService,
   type UploadedFileData,
 } from './documents.service.js';
-
-const idPipe = new ZodValidationPipe(z.uuid());
 
 /** Every route needs a valid token (global AuthGuard) and membership of the project's workspace. */
 @Controller('projects/:projectId/documents')
@@ -43,7 +40,7 @@ export class DocumentsController {
   )
   upload(
     @CurrentUser() user: AuthUser,
-    @Param('projectId', idPipe) projectId: string,
+    @Param('projectId', uuidParam) projectId: string,
     @UploadedFile() file?: UploadedFileData,
   ) {
     if (!file) {
@@ -58,7 +55,7 @@ export class DocumentsController {
   @Get()
   list(
     @CurrentUser() user: AuthUser,
-    @Param('projectId', idPipe) projectId: string,
+    @Param('projectId', uuidParam) projectId: string,
   ) {
     return this.documents.list(user.id, projectId);
   }
@@ -66,8 +63,8 @@ export class DocumentsController {
   @Get(':documentId')
   get(
     @CurrentUser() user: AuthUser,
-    @Param('projectId', idPipe) projectId: string,
-    @Param('documentId', idPipe) documentId: string,
+    @Param('projectId', uuidParam) projectId: string,
+    @Param('documentId', uuidParam) documentId: string,
   ) {
     return this.documents.get(user.id, projectId, documentId);
   }
@@ -76,8 +73,8 @@ export class DocumentsController {
   @HttpCode(204)
   async remove(
     @CurrentUser() user: AuthUser,
-    @Param('projectId', idPipe) projectId: string,
-    @Param('documentId', idPipe) documentId: string,
+    @Param('projectId', uuidParam) projectId: string,
+    @Param('documentId', uuidParam) documentId: string,
   ) {
     await this.documents.remove(user.id, projectId, documentId);
   }
@@ -86,8 +83,8 @@ export class DocumentsController {
   @HttpCode(200)
   retry(
     @CurrentUser() user: AuthUser,
-    @Param('projectId', idPipe) projectId: string,
-    @Param('documentId', idPipe) documentId: string,
+    @Param('projectId', uuidParam) projectId: string,
+    @Param('documentId', uuidParam) documentId: string,
   ) {
     return this.documents.retry(user.id, projectId, documentId);
   }
@@ -97,8 +94,8 @@ export class DocumentsController {
   @Get(':documentId/download')
   async download(
     @CurrentUser() user: AuthUser,
-    @Param('projectId', idPipe) projectId: string,
-    @Param('documentId', idPipe) documentId: string,
+    @Param('projectId', uuidParam) projectId: string,
+    @Param('documentId', uuidParam) documentId: string,
   ) {
     const file = await this.documents.download(user.id, projectId, documentId);
     return new StreamableFile(file.bytes, {

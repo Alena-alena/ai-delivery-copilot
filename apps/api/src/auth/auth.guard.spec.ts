@@ -1,8 +1,16 @@
-import { UnauthorizedException, type ExecutionContext } from '@nestjs/common';
+import {
+  ServiceUnavailableException,
+  UnauthorizedException,
+  type ExecutionContext,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { describe, expect, it, vi } from 'vitest';
 import { AuthGuard } from './auth.guard.js';
-import { InvalidTokenError, type JwtVerifier } from './jwt-verifier.js';
+import {
+  AuthUnavailableError,
+  InvalidTokenError,
+  type JwtVerifier,
+} from './jwt-verifier.js';
 import { Public } from './public.decorator.js';
 import type { UsersService } from './users.service.js';
 
@@ -80,6 +88,20 @@ describe('AuthGuard', () => {
     expect(verify).toHaveBeenCalledWith('good');
     expect(req.user).toEqual(user);
     expect(ensureUser).toHaveBeenCalledWith(user);
+  });
+
+  it('answers 503 (not 401) when tokens cannot be verified right now', async () => {
+    const { guard, ensureUser } = setup(
+      vi.fn().mockRejectedValue(new AuthUnavailableError('down')),
+    );
+    const error = await guard
+      .canActivate(ctx(Closed, { authorization: 'Bearer x' }).context)
+      .catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(ServiceUnavailableException);
+    expect((error as ServiceUnavailableException).getResponse()).toMatchObject({
+      code: 'AUTH_UNAVAILABLE',
+    });
+    expect(ensureUser).not.toHaveBeenCalled();
   });
 
   it('does not turn unexpected errors into 401', async () => {

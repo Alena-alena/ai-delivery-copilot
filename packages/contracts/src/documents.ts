@@ -47,11 +47,19 @@ export const DOCUMENT_ERROR_MESSAGES = {
     'This PDF has no text layer (it is probably a scan). OCR is not supported yet; upload a text version.',
   PDF_ENCRYPTED: 'This PDF is password-protected. Remove the password and upload it again.',
   EMPTY_DOCUMENT: 'No text was found in this document.',
+  TOO_MANY_PAGES: 'This document has too many pages to process. Split it into smaller files.',
+  EXTRACTION_TIMEOUT: 'This document took too long to process. Try a smaller or simpler file.',
+  PROJECT_STORAGE_LIMIT:
+    'This project has reached its limit on the number or total size of files. Delete a file first.',
   PROJECT_TEXT_LIMIT:
     'Adding this document would exceed the text limit for the project. Remove another document first.',
   EXTRACTION_FAILED: 'Text extraction failed. Try again in a moment.',
 } as const;
 export type DocumentErrorCode = keyof typeof DOCUMENT_ERROR_MESSAGES;
+
+export function isDocumentErrorCode(code: string): code is DocumentErrorCode {
+  return code in DOCUMENT_ERROR_MESSAGES;
+}
 
 export function documentErrorMessage(code: string | null | undefined): string {
   return code && code in DOCUMENT_ERROR_MESSAGES

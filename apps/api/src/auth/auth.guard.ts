@@ -2,12 +2,17 @@ import {
   type CanActivate,
   type ExecutionContext,
   Injectable,
+  ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { IS_PUBLIC_KEY } from './public.decorator.js';
 import type { AuthedRequest } from './auth.types.js';
-import { InvalidTokenError, JwtVerifier } from './jwt-verifier.js';
+import {
+  AuthUnavailableError,
+  InvalidTokenError,
+  JwtVerifier,
+} from './jwt-verifier.js';
 import { UsersService } from './users.service.js';
 
 /** Global guard: every route needs a valid Supabase access token unless marked @Public(). */
@@ -36,6 +41,13 @@ export class AuthGuard implements CanActivate {
     } catch (e) {
       if (e instanceof InvalidTokenError) {
         throw new UnauthorizedException(e.message);
+      }
+      if (e instanceof AuthUnavailableError) {
+        // 503, not 401: clients keep the session and retry instead of signing the user out
+        throw new ServiceUnavailableException({
+          code: 'AUTH_UNAVAILABLE',
+          message: e.message,
+        });
       }
       throw e;
     }

@@ -15,8 +15,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { ApiError, apiUpload } from '@/lib/api';
+import { apiUpload } from '@/lib/api';
 import { documentKeys, downloadDocument, useDocuments, useRetryDocument } from '@/lib/documents';
+import { uploadErrorMessage } from '@/lib/upload-errors';
 
 interface PendingUpload {
   key: string;
@@ -86,11 +87,7 @@ export default function DocumentsTab({ projectId }: { projectId: string }) {
       setUploads((l) => l.filter((u) => u.key !== key));
       await qc.invalidateQueries({ queryKey: documentKeys.list(projectId) });
     } catch (e) {
-      // The API's reason, in plain words (e.g. FILE_CORRUPTED), instead of a raw status line.
-      const message = e instanceof ApiError ? documentErrorMessage(e.body.code) : 'Upload failed';
-      patch(key, {
-        error: e instanceof ApiError && e.body.code === 'NOT_FOUND' ? e.message : message,
-      });
+      patch(key, { error: uploadErrorMessage(e) });
     }
   }
 

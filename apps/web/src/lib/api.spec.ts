@@ -7,7 +7,7 @@ const auth = vi.hoisted(() => ({
 }));
 vi.mock('@/lib/supabase', () => ({ supabase: { auth } }));
 
-import { ApiError, apiDelete, apiGet } from './api';
+import { ApiError, apiBlob, apiDelete, apiGet, apiUpload } from './api';
 
 const session = (token: string | null) => ({
   data: { session: token ? { access_token: token } : null },
@@ -90,5 +90,101 @@ describe('api client and 401 handling', () => {
   it('treats 204 No Content as success with no body', async () => {
     fetchMock.mockResolvedValue(new Response(null, { status: 204 }));
     await expect(apiDelete('/projects/x')).resolves.toBeUndefined();
+  });
+});
+
+/** A scripted XMLHttpRequest: each send() consumes the next planned outcome. */
+type Planned = { status: number; body?: unknown } | 'network-error';
+const xhrPlan: Planned[] = [];
+const xhrSeen: { token: string | null }[] = [];
+
+class FakeXhr {
+  upload: { onprogress: ((e: ProgressEvent) => void) | null } = { onprogress: null };
+  onload: (() => void) | null = null;
+  onerror: (() => void) | null = null;
+  status = 0;
+  responseText = '';
+  statusText = '';
+  private token: string | null = null;
+  open() {}
+  setRequestHeader(name: string, value: string) {
+    if (name === 'authorization') this.token = value;
+  }
+  send() {
+    xhrSeen.push({ token: this.token });
+    const next = xhrPlan.shift();
+    queueMicrotask(() => {
+      this.upload.onprogress?.({ lengthComputable: true, loaded: 5, total: 10 } as ProgressEvent);
+      if (next === 'network-error' || !next) return this.onerror?.();
+      this.status = next.status;
+      this.responseText = next.body === undefined ? '' : JSON.stringify(next.body);
+      this.onload?.();
+    });
+  }
+}
+
+describe('uploads and downloads share the same 401 handling', () => {
+  const file = new File(['hello'], 'a.txt');
+
+  beforeEach(() => {
+    xhrPlan.length = 0;
+    xhrSeen.length = 0;
+    vi.stubGlobal('XMLHttpRequest', FakeXhr);
+  });
+
+  it('uploads with the Bearer token and reports progress', async () => {
+    xhrPlan.push({ status: 201, body: { id: 'doc-1' } });
+    const progress = vi.fn();
+    await expect(apiUpload('/projects/p/documents', file, progress)).resolves.toEqual({
+      id: 'doc-1',
+    });
+    expect(xhrSeen[0]!.token).toBe('Bearer old-token');
+    expect(progress).toHaveBeenCalledWith(0.5);
+  });
+
+  it('refreshes the session and retries the upload once when the token has expired', async () => {
+    xhrPlan.push({ status: 401, body: { code: 'UNAUTHORIZED', message: 'expired' } });
+    xhrPlan.push({ status: 201, body: { id: 'doc-2' } });
+    auth.refreshSession.mockResolvedValue(session('new-token'));
+
+    await expect(apiUpload('/x', file, () => {})).resolves.toEqual({ id: 'doc-2' });
+    expect(xhrSeen.map((x) => x.token)).toEqual(['Bearer old-token', 'Bearer new-token']);
+    expect(auth.signOut).not.toHaveBeenCalled();
+  });
+
+  it('signs out when the upload is rejected again after a refresh', async () => {
+    xhrPlan.push({ status: 401, body: { code: 'UNAUTHORIZED', message: 'bad' } });
+    xhrPlan.push({ status: 401, body: { code: 'UNAUTHORIZED', message: 'bad' } });
+    auth.refreshSession.mockResolvedValue(session('still-bad'));
+
+    const error = (await apiUpload('/x', file, () => {}).catch((e: unknown) => e)) as ApiError;
+    expect(error.status).toBe(401);
+    expect(xhrSeen).toHaveLength(2); // one retry, no loop
+    expect(auth.signOut).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the API error code for a rejected file and does not touch the session', async () => {
+    xhrPlan.push({ status: 415, body: { code: 'UNSUPPORTED_TYPE', message: 'nope' } });
+    const error = (await apiUpload('/x', file, () => {}).catch((e: unknown) => e)) as ApiError;
+    expect(error).toBeInstanceOf(ApiError);
+    expect(error.body.code).toBe('UNSUPPORTED_TYPE');
+    expect(auth.refreshSession).not.toHaveBeenCalled();
+  });
+
+  it('turns a dropped connection into a NETWORK_ERROR', async () => {
+    xhrPlan.push('network-error');
+    const error = (await apiUpload('/x', file, () => {}).catch((e: unknown) => e)) as ApiError;
+    expect(error.body.code).toBe('NETWORK_ERROR');
+    expect(error.status).toBe(0);
+  });
+
+  it('downloads retry on 401 too', async () => {
+    fetchMock
+      .mockResolvedValueOnce(json(401, { code: 'UNAUTHORIZED', message: 'expired' }))
+      .mockResolvedValueOnce(new Response('file-bytes', { status: 200 }));
+    auth.refreshSession.mockResolvedValue(session('new-token'));
+    const blob = await apiBlob('/projects/p/documents/d/download');
+    expect(await blob.text()).toBe('file-bytes');
+    expect(tokenOf(1)).toBe('Bearer new-token');
   });
 });

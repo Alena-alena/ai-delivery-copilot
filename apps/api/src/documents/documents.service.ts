@@ -6,8 +6,10 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import type { Document, DocumentDetail } from '@copilot/contracts';
-import { and, asc, desc, eq } from 'drizzle-orm';
+import { ConfigService } from '@nestjs/config';
+import { and, asc, desc, eq, sql } from 'drizzle-orm';
 import { createHash, randomUUID } from 'node:crypto';
+import type { Env } from '../config/env.js';
 import { DATABASE } from '../db/db.module.js';
 import type { Database } from '../db/db.js';
 import { documentSegments, documents } from '../db/schema.js';
@@ -17,7 +19,11 @@ import {
   documentStorageKey,
 } from '../storage/storage.service.js';
 import { DocumentJobs } from './document-jobs.js';
-import { detectDocument, safeFileName } from './file-validation.js';
+import {
+  detectDocument,
+  rejectDocument,
+  safeFileName,
+} from './file-validation.js';
 
 export type DocumentRow = typeof documents.$inferSelect;
 
@@ -51,6 +57,7 @@ export class DocumentsService {
     @Inject(ProjectAccessService) private readonly access: ProjectAccessService,
     @Inject(StorageService) private readonly storage: StorageService,
     @Inject(DocumentJobs) private readonly jobs: DocumentJobs,
+    @Inject(ConfigService) private readonly config: ConfigService<Env, true>,
   ) {}
 
   /** Validates the content, stores the file, records it and queues text extraction. */
@@ -76,19 +83,16 @@ export class DocumentsService {
 
     let row: DocumentRow;
     try {
-      [row] = (await this.db
-        .insert(documents)
-        .values({
-          id,
-          projectId: project.id,
-          name,
-          mime: detected.mime,
-          size: file.buffer.length,
-          sha256: createHash('sha256').update(file.buffer).digest('hex'),
-          storageKey,
-          uploadedBy: userId,
-        })
-        .returning()) as [DocumentRow];
+      row = await this.insertWithinQuota({
+        id,
+        projectId: project.id,
+        name,
+        mime: detected.mime,
+        size: file.buffer.length,
+        sha256: createHash('sha256').update(file.buffer).digest('hex'),
+        storageKey,
+        uploadedBy: userId,
+      });
     } catch (err) {
       // No row means nothing would ever point at the stored file: remove it.
       await this.storage.delete(storageKey).catch(() => undefined);
@@ -195,6 +199,40 @@ export class DocumentsService {
     const row = await this.requireDocument(userId, projectId, documentId);
     const bytes = await this.storage.get(row.storageKey);
     return { name: row.name, mime: row.mime, bytes };
+  }
+
+  /**
+   * Inserts the row unless the project is at its file-count or total-size cap. Counting and inserting happen
+   * under a per-project advisory lock, so two uploads at once cannot both slip under the cap.
+   */
+  private async insertWithinQuota(
+    values: typeof documents.$inferInsert,
+  ): Promise<DocumentRow> {
+    const maxDocuments = this.config.get('PROJECT_MAX_DOCUMENTS', {
+      infer: true,
+    });
+    const maxBytes =
+      this.config.get('PROJECT_MAX_STORAGE_MB', { infer: true }) * 1024 * 1024;
+    return this.db.transaction(async (tx) => {
+      await tx.execute(
+        sql`select pg_advisory_xact_lock(hashtext(${values.projectId}))`,
+      );
+      const [usage] = await tx
+        .select({
+          count: sql<number>`count(*)::int`,
+          bytes: sql<number>`coalesce(sum(${documents.size}), 0)::float8`,
+        })
+        .from(documents)
+        .where(eq(documents.projectId, values.projectId));
+      if (
+        (usage?.count ?? 0) >= maxDocuments ||
+        (usage?.bytes ?? 0) + values.size > maxBytes
+      ) {
+        rejectDocument('PROJECT_STORAGE_LIMIT');
+      }
+      const [row] = await tx.insert(documents).values(values).returning();
+      return row!;
+    });
   }
 
   /** If queuing fails the document must not stay "uploaded" forever: mark it failed so it can be retried. */

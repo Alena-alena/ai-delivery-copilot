@@ -1,3 +1,4 @@
+import { ConfigService } from '@nestjs/config';
 import { mkdtemp, readdir, rm } from 'node:fs/promises';
 import { readFileSync } from 'node:fs';
 import os from 'node:os';
@@ -64,6 +65,7 @@ beforeAll(async () => {
       DocumentsService,
       { provide: StorageService, useValue: new LocalStorageService(dir) },
       { provide: DocumentJobs, useValue: { enqueueExtract } },
+      { provide: ConfigService, useValue: { get: () => 1000 } },
     ],
   });
 });

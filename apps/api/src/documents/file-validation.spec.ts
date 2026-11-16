@@ -74,6 +74,22 @@ describe('detectDocument (edge cases)', () => {
     ).toBe('UNSUPPORTED_TYPE');
   });
 
+  it('accepts UTF-16 text with a byte-order mark but still rejects other NUL-containing files', async () => {
+    const le = Buffer.concat([
+      Buffer.from([0xff, 0xfe]),
+      Buffer.from('Привет', 'utf16le'),
+    ]);
+    const be = Buffer.concat([
+      Buffer.from([0xfe, 0xff]),
+      Buffer.from([0x04, 0x1f, 0x04, 0x40]),
+    ]);
+    expect((await detectDocument('a.txt', le)).ext).toBe('txt');
+    expect((await detectDocument('a.txt', be)).ext).toBe('txt');
+    expect(
+      await codeOf(detectDocument('a.txt', Buffer.from([0x41, 0x00, 0x42]))),
+    ).toBe('UNSUPPORTED_TYPE');
+  });
+
   it('rejects a PDF-named text file', async () => {
     expect(
       await codeOf(detectDocument('a.pdf', Buffer.from('just text'))),

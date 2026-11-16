@@ -6,7 +6,11 @@ import {
   type JWK,
 } from 'jose';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { InvalidTokenError, JwtVerifier } from './jwt-verifier.js';
+import {
+  AuthUnavailableError,
+  InvalidTokenError,
+  JwtVerifier,
+} from './jwt-verifier.js';
 
 const URL_ = 'https://proj.supabase.co';
 const ISSUER = `${URL_}/auth/v1`;
@@ -106,6 +110,29 @@ describe('JwtVerifier', () => {
     const t = await sign({ email: 'a@b.co' }, { aud: 'anon' });
     await expect(verifier.verify(t)).rejects.toThrow(
       'Invalid or expired token',
+    );
+  });
+
+  it('reports an unreachable key set as an outage, not as a bad token', async () => {
+    const down = new JwtVerifier(
+      () => Promise.reject(new TypeError('fetch failed')),
+      URL_,
+    );
+    await expect(down.verify(await sign())).rejects.toBeInstanceOf(
+      AuthUnavailableError,
+    );
+  });
+
+  it('still treats an unknown signing key as a bad token', async () => {
+    const other = await generateKeyPair('ES256');
+    const jwk: JWK = {
+      ...(await exportJWK(other.publicKey)),
+      kid: 'other',
+      alg: 'ES256',
+    };
+    const wrongKeys = new JwtVerifier(createLocalJWKSet({ keys: [jwk] }), URL_);
+    await expect(wrongKeys.verify(await sign())).rejects.toBeInstanceOf(
+      InvalidTokenError,
     );
   });
 });

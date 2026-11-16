@@ -17,6 +17,9 @@ export const envSchema = z.object({
   PROJECT_TEXT_TOKEN_LIMIT: z.coerce.number().int().positive().default(150_000),
   // Where uploaded files are stored (a folder; mount a volume here in deployment).
   STORAGE_DIR: z.string().min(1).default('./storage'),
+  // Per-project caps on stored files (failed and unreadable files count too), so uploads cannot fill the disk.
+  PROJECT_MAX_DOCUMENTS: z.coerce.number().int().positive().default(50),
+  PROJECT_MAX_STORAGE_MB: z.coerce.number().int().positive().default(200),
   // Supabase project URL (public). Tokens are verified against its JWKS, no shared secret needed.
   SUPABASE_URL: z.url(),
   // Fail closed: dev-only endpoints exist only when explicitly enabled (never implied by NODE_ENV).
