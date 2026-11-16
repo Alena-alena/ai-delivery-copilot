@@ -16,3 +16,11 @@
 
 - Work happens on `development`. `development` is the default branch on GitHub.
 - `main` is not used.
+
+## LiteLLM (phase 1, session 3)
+
+- Run as proxy in Docker (`infra/docker-compose.yml`) with its own Postgres for spend logs.
+- Image pinned by digest via `LITELLM_VERSION` (`main-stable@sha256:…`, LiteLLM 1.109.1).
+- Alias `default-llm` → `openai/gpt-5.6-luna`; retries 2, timeout 60 s.
+- AI service uses a virtual key (`LITELLM_VIRTUAL_KEY`), budget 5 USD / 30 days; master key stays out of app code.
+- UI/API bound to 127.0.0.1:4000. Apps run locally; Docker only for infrastructure. `pnpm dev` starts everything.

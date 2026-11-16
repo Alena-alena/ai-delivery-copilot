@@ -1,0 +1,16 @@
+model_list:
+  # Business code only ever uses the alias `default-llm`; the real model is chosen here.
+  - model_name: default-llm
+    litellm_params:
+      model: openai/gpt-5.6-luna
+      api_key: os.environ/OPENAI_API_KEY
+      timeout: 60
+
+litellm_settings:
+  num_retries: 2
+  request_timeout: 60
+  drop_params: true
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+  database_url: os.environ/DATABASE_URL

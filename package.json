@@ -7,7 +7,11 @@
     "format": "prettier --write .",
     "format-check": "prettier --check .",
     "dev-web": "pnpm --filter web dev",
-    "dev-api": "pnpm --filter api start:dev"
+    "dev-api": "pnpm --filter api start:dev",
+    "infra:up": "docker compose --env-file .env -f infra/docker-compose.yml up -d --wait",
+    "infra:down": "docker compose --env-file .env -f infra/docker-compose.yml down",
+    "dev-ai": "cd services/ai && uv run uvicorn app.main:app --reload --port 8000",
+    "dev": "pnpm infra:up && concurrently -k -n api,ai,web -c blue,magenta,green \"pnpm dev-api\" \"pnpm dev-ai\" \"pnpm dev-web\""
   },
   "type": "module",
   "packageManager": "pnpm@12.21.0",
@@ -19,6 +23,7 @@
     }
   },
   "devDependencies": {
+    "concurrently": "^10.0.7",
     "prettier": "^3.10.1"
   }
 }
