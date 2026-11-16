@@ -1,7 +1,3 @@
-import os
-
-os.environ["AI_INTERNAL_TOKEN"] = "test-token-0123456789"
-
 from fastapi.testclient import TestClient
 
 from app.main import app

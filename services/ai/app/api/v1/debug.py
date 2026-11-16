@@ -3,7 +3,6 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
 
-from app.config import Settings, get_settings
 from app.llm.client import LLMClient, Message
 
 router = APIRouter(prefix="/debug")
@@ -25,8 +24,8 @@ class CompleteOut(BaseModel):
     latency_ms: float
 
 
-def get_llm(settings: Annotated[Settings, Depends(get_settings)]) -> LLMClient:
-    return LLMClient(settings)
+def get_llm(request: Request) -> LLMClient:
+    return request.app.state.llm
 
 
 @router.post("/complete")

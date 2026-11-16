@@ -1,7 +1,4 @@
-import os
 from types import SimpleNamespace
-
-os.environ["AI_INTERNAL_TOKEN"] = "test-token-0123456789"
 
 import httpx
 import openai

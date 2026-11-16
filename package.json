@@ -2,7 +2,7 @@
   "name": "ai-delivery-copilot",
   "version": "1.0.0",
   "description": "",
-  "private": "true",
+  "private": true,
   "scripts": {
     "format": "prettier --write .",
     "format-check": "prettier --check .",
@@ -11,7 +11,9 @@
     "infra:up": "docker compose --env-file .env -f infra/docker-compose.yml up -d --wait",
     "infra:down": "docker compose --env-file .env -f infra/docker-compose.yml down",
     "dev-ai": "cd services/ai && uv run uvicorn app.main:app --reload --port 8000",
-    "dev": "pnpm infra:up && concurrently -k -n api,ai,web -c blue,magenta,green \"pnpm dev-api\" \"pnpm dev-ai\" \"pnpm dev-web\""
+    "dev": "pnpm infra:up && concurrently -k -n api,ai,web -c blue,magenta,green \"pnpm dev-api\" \"pnpm dev-ai\" \"pnpm dev-web\"",
+    "lint": "pnpm -r --if-present lint && cd services/ai && uv run ruff check .",
+    "test": "pnpm -r --if-present test && cd services/ai && uv run pytest -q"
   },
   "type": "module",
   "packageManager": "pnpm@12.21.0",

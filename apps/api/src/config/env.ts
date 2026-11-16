@@ -8,6 +8,11 @@ export const envSchema = z.object({
   AI_SERVICE_URL: z.url().default('http://localhost:8000'),
   AI_INTERNAL_TOKEN: z.string().min(16),
   AI_TIMEOUT_MS: z.coerce.number().int().positive().default(10_000),
+  // Fail closed: dev-only endpoints exist only when explicitly enabled (never implied by NODE_ENV).
+  ENABLE_DEV_ENDPOINTS: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((v) => v === 'true'),
   LOG_LEVEL: z
     .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace'])
     .default('info'),

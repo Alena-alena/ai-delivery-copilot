@@ -1,14 +1,22 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { vi } from 'vitest';
-import { DevController } from './dev.controller.js';
+import { DevController, LLM_TIMEOUT_MS } from './dev.controller.js';
 import { DevOnlyGuard } from './dev-only.guard.js';
 
 describe('DevOnlyGuard', () => {
-  const guard = (env: string) => new DevOnlyGuard({ get: () => env } as never);
-  it('allows development', () =>
-    expect(guard('development').canActivate()).toBe(true));
-  it.each(['production', 'test'])('hides the endpoint in %s', (env) => {
-    expect(() => guard(env).canActivate()).toThrow(NotFoundException);
+  const guard = (enabled: boolean, env = 'development') =>
+    new DevOnlyGuard({
+      get: (k: string) => (k === 'NODE_ENV' ? env : enabled),
+    } as never);
+  it('allows when explicitly enabled', () =>
+    expect(guard(true).canActivate()).toBe(true));
+  it('is closed by default', () => {
+    expect(() => guard(false).canActivate()).toThrow(NotFoundException);
+  });
+  it('stays closed in production even if the flag is set', () => {
+    expect(() => guard(true, 'production').canActivate()).toThrow(
+      NotFoundException,
+    );
   });
 });
 
@@ -27,6 +35,7 @@ describe('DevController', () => {
       '/v1/debug/complete',
       { prompt: 'hi' },
       'r-1',
+      LLM_TIMEOUT_MS,
     );
   });
 });

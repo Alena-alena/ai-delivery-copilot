@@ -40,10 +40,13 @@ class LLMClient:
         self._alias = settings.llm_model_alias
         self._client = client or AsyncOpenAI(
             base_url=f"{settings.litellm_url.rstrip('/')}/v1",
-            api_key=settings.litellm_virtual_key.get_secret_value() or "unset",
+            api_key=settings.litellm_virtual_key.get_secret_value(),
             timeout=settings.llm_timeout_s,
             max_retries=0,  # retries are LiteLLM's job (config.yaml num_retries)
         )
+
+    async def aclose(self) -> None:
+        await self._client.close()
 
     async def complete(
         self,

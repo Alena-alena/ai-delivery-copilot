@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { Logger } from 'nestjs-pino';
+import { getRequestId } from './request-id.js';
 
 export interface ErrorBody {
   code: string;
@@ -37,7 +38,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
       exception instanceof HttpException
         ? exception.getStatus()
         : HttpStatus.INTERNAL_SERVER_ERROR;
-    const requestId = String(req.id ?? res.getHeader('x-request-id') ?? '');
+    const requestId = getRequestId(req);
 
     let message = 'Internal server error';
     let code =

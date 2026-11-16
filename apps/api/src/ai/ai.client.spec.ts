@@ -65,3 +65,39 @@ describe('AiClient errors from Python', () => {
     });
   });
 });
+
+describe('AiClient response handling', () => {
+  it('maps a non-JSON 2xx body to 502 AI_ERROR', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(new Response('<html>oops</html>')),
+    );
+    await expect(new AiClient(config).get('/x', 'r')).rejects.toMatchObject({
+      status: 502,
+      response: { code: 'AI_ERROR' },
+    });
+  });
+
+  it('maps a timeout while reading the body to 504', async () => {
+    const res = {
+      ok: true,
+      status: 200,
+      text: () => Promise.reject(new DOMException('t', 'TimeoutError')),
+    };
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(res));
+    await expect(new AiClient(config).get('/x', 'r')).rejects.toBeInstanceOf(
+      GatewayTimeoutException,
+    );
+  });
+
+  it('uses a per-call timeout override instead of the default', async () => {
+    const spy = vi.spyOn(AbortSignal, 'timeout');
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(new Response('{"ok":true}')),
+    );
+    await new AiClient(config).post('/x', {}, 'r', 80_000);
+    expect(spy).toHaveBeenCalledWith(80_000);
+    spy.mockRestore();
+  });
+});

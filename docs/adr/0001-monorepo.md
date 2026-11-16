@@ -19,3 +19,4 @@ public access. Turborepo / Nx are not used: two TS apps and one shared package d
 - Python tooling is independent of pnpm; root scripts orchestrate both.
 - Tooling note: the Vite and Nest templates ship with oxlint (not ESLint) and Vitest (not Jest);
   we keep them instead of replacing with the plan's ESLint.
+- `tsconfig.base.json` (strict) is extended by apps/api and apps/web. `pnpm lint` runs oxlint for the TS apps and ruff for Python; `pnpm test` runs Vitest and pytest.

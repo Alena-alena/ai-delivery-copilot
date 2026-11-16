@@ -9,9 +9,11 @@ class Settings(BaseSettings):
 
     ai_internal_token: SecretStr = Field(min_length=16)
     litellm_url: str = "http://localhost:4000"
-    litellm_virtual_key: SecretStr = SecretStr("")
+    litellm_virtual_key: SecretStr = Field(min_length=1)  # fail at startup, not at first call
     llm_model_alias: str = "default-llm"
-    llm_timeout_s: float = 60.0
+    # Must exceed LiteLLM's total budget: (num_retries + 1) x per-attempt timeout (infra/litellm/config.yaml)
+    llm_timeout_s: float = 70.0
+    enable_dev_endpoints: bool = False
     log_level: str = "INFO"
     environment: str = "development"
 

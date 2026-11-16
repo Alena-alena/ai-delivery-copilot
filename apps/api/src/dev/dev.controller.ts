@@ -9,10 +9,12 @@ import {
 import type { Request } from 'express';
 import { z } from 'zod';
 import { AiClient } from '../ai/ai.client.js';
+import { getRequestId } from '../common/request-id.js';
 import { DevOnlyGuard } from './dev-only.guard.js';
 
-// Must exceed the Python → LiteLLM timeout (60 s) so Python's typed error wins the race.
-const LLM_TIMEOUT_MS = 70_000;
+// Timeout budget: LiteLLM 60 s (infra/litellm/config.yaml) < Python 70 s < this 80 s,
+// so the innermost layer's typed error always wins and nobody keeps billing after we give up.
+export const LLM_TIMEOUT_MS = 80_000;
 
 const llmPingSchema = z.object({
   prompt: z.string().min(1).max(4000),
@@ -50,7 +52,8 @@ export class DevController {
     return this.ai.post<LlmPingResult>(
       '/v1/debug/complete',
       parsed.data,
-      String(req.id),
+      getRequestId(req),
+      LLM_TIMEOUT_MS,
     );
   }
 }

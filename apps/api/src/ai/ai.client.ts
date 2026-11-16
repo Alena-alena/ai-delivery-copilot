@@ -39,20 +39,26 @@ export class AiClient {
     const baseUrl = this.config.get('AI_SERVICE_URL', { infer: true });
     const timeoutMs =
       timeoutOverrideMs ?? this.config.get('AI_TIMEOUT_MS', { infer: true });
+    const headers: Record<string, string> = {
+      'x-internal-token': this.config.get('AI_INTERNAL_TOKEN', { infer: true }),
+      'x-request-id': requestId,
+    };
+    const init: RequestInit = {
+      method,
+      headers,
+      signal: AbortSignal.timeout(timeoutMs),
+    };
+    if (body !== undefined) {
+      headers['content-type'] = 'application/json';
+      init.body = JSON.stringify(body);
+    }
+
     let res: Response;
+    let text: string;
     try {
-      res = await fetch(`${baseUrl}${path}`, {
-        method,
-        headers: {
-          'x-internal-token': this.config.get('AI_INTERNAL_TOKEN', {
-            infer: true,
-          }),
-          'x-request-id': requestId,
-          ...(body === undefined ? {} : { 'content-type': 'application/json' }),
-        },
-        body: body === undefined ? undefined : JSON.stringify(body),
-        signal: AbortSignal.timeout(timeoutMs),
-      });
+      res = await fetch(`${baseUrl}${path}`, init);
+      // The timeout also covers reading the body, so it is read inside this try.
+      text = await res.text();
     } catch (err) {
       if (
         err instanceof Error &&
@@ -68,11 +74,16 @@ export class AiClient {
         message: 'AI service unreachable',
       });
     }
+
+    let payload: unknown = null;
+    try {
+      payload = JSON.parse(text);
+    } catch {
+      // non-JSON body: handled below
+    }
+
     if (!res.ok) {
-      const upstream = (await res.json().catch(() => null)) as {
-        code?: string;
-        message?: string;
-      } | null;
+      const upstream = payload as { code?: string; message?: string } | null;
       if (PASSTHROUGH_STATUSES.has(res.status) && upstream?.code) {
         throw new HttpException(
           {
@@ -87,6 +98,12 @@ export class AiClient {
         message: `AI service responded with ${res.status}`,
       });
     }
-    return (await res.json()) as T;
+    if (payload === null) {
+      throw new BadGatewayException({
+        code: 'AI_ERROR',
+        message: 'AI service returned an invalid response',
+      });
+    }
+    return payload as T;
   }
 }
