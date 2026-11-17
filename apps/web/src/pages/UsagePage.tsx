@@ -129,13 +129,25 @@ export default function UsagePage() {
       ) : error ? (
         <Card>
           <CardContent className="py-8 text-center">
-            <p className="font-heading text-lg font-semibold text-destructive">
-              Could not load usage
-            </p>
-            <p className="mt-1 text-muted-foreground">{error.message}</p>
-            <Button variant="outline" className="mt-3" onClick={() => refetch()}>
-              Try again
-            </Button>
+            {(error as { status?: number }).status === 403 ? (
+              // not an outage: retrying cannot help
+              <>
+                <p className="font-heading text-lg font-semibold">Operators only</p>
+                <p className="mt-1 text-muted-foreground">
+                  This page shows spend across all users, so only operators can open it.
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="font-heading text-lg font-semibold text-destructive">
+                  Could not load usage
+                </p>
+                <p className="mt-1 text-muted-foreground">{error.message}</p>
+                <Button variant="outline" className="mt-3" onClick={() => refetch()}>
+                  Try again
+                </Button>
+              </>
+            )}
           </CardContent>
         </Card>
       ) : (

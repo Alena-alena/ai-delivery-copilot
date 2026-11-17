@@ -4,6 +4,7 @@ import BrandMark from '@/components/BrandMark';
 import ThemeToggle from '@/components/ThemeToggle';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/auth';
+import { useMe } from '@/lib/me';
 import { cn } from '@/lib/utils';
 
 const navClass = ({ isActive }: { isActive: boolean }) =>
@@ -16,6 +17,7 @@ const navClass = ({ isActive }: { isActive: boolean }) =>
 
 export default function AppLayout() {
   const { user, signOut } = useAuth();
+  const me = useMe();
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -26,9 +28,11 @@ export default function AppLayout() {
             <NavLink to="/" end className={navClass}>
               Projects
             </NavLink>
-            <NavLink to="/usage" className={navClass}>
-              Usage
-            </NavLink>
+            {me.data?.isOperator && (
+              <NavLink to="/usage" className={navClass}>
+                Usage
+              </NavLink>
+            )}
             <NavLink to="/status" className={navClass}>
               Status
             </NavLink>

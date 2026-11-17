@@ -12,6 +12,16 @@ export const envSchema = z.object({
   LITELLM_URL: z.url().default('http://localhost:4000'),
   LITELLM_MASTER_KEY: z.string().min(1).optional(),
   LITELLM_VIRTUAL_KEY: z.string().min(1).optional(),
+  // Operators (comma-separated emails) may read the Usage page: it shows spend across all users. Empty means nobody.
+  USAGE_ADMIN_EMAILS: z
+    .string()
+    .default('')
+    .transform((v) =>
+      v
+        .split(',')
+        .map((e) => e.trim().toLowerCase())
+        .filter(Boolean),
+    ),
   // Supabase Postgres. DATABASE_URL: transaction pooler (6543) used by the app.
   // DATABASE_MIGRATION_URL: session pooler (5432), used by drizzle-kit and the job queue (pg-boss),
   // both of which need a real session and not the transaction pooler.

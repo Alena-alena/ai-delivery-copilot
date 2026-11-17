@@ -3,6 +3,7 @@ import {
   type Provider,
   type Type,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { Test } from '@nestjs/testing';
 import type { Logger } from 'nestjs-pino';
@@ -78,6 +79,8 @@ export async function createTestApp(
           mkdtempSync(path.join(os.tmpdir(), 'copilot-test-storage-')),
         ),
       },
+      // nobody is an operator unless a test says so (tests pass their own ConfigService in `providers`)
+      { provide: ConfigService, useValue: { get: () => undefined } },
       { provide: JwtVerifier, useValue: fakeVerifier },
       { provide: APP_GUARD, useClass: AuthGuard },
       ...(extra.providers ?? []),

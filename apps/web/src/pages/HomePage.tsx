@@ -2,16 +2,10 @@ import { useQuery } from '@tanstack/react-query';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { apiGet } from '@/lib/api';
+import { useMe } from '@/lib/me';
 
 interface Health {
   status: string;
-}
-
-interface Me {
-  id: string;
-  email: string;
-  displayName: string | null;
-  workspaces: { id: string; name: string; role: string }[];
 }
 
 export default function HomePage() {
@@ -19,7 +13,7 @@ export default function HomePage() {
     queryKey: ['health'],
     queryFn: () => apiGet<Health>('/health'),
   });
-  const me = useQuery({ queryKey: ['me'], queryFn: () => apiGet<Me>('/auth/me') });
+  const me = useMe();
 
   return (
     <div className="flex flex-col gap-4">

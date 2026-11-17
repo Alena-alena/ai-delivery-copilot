@@ -8,6 +8,7 @@ import {
   it,
   vi,
 } from 'vitest';
+import { OperatorGuard, isOperator } from '../auth/operator.guard.js';
 import { as, createTestApp } from '../testing/test-app.js';
 import { LitellmUsageClient } from './litellm-usage.client.js';
 import { UsageController } from './usage.controller.js';
@@ -126,6 +127,19 @@ describe('LitellmUsageClient', () => {
   });
 });
 
+describe('isOperator', () => {
+  const list = (v: unknown) => config({ USAGE_ADMIN_EMAILS: v });
+  it('matches the list case-insensitively', () => {
+    expect(isOperator(list(['a@x.co']), 'A@X.co')).toBe(true);
+    expect(isOperator(list(['a@x.co']), 'b@x.co')).toBe(false);
+  });
+  it('fails closed: an empty or missing list, or a missing email, is nobody', () => {
+    expect(isOperator(list([]), 'a@x.co')).toBe(false);
+    expect(isOperator(list(undefined), 'a@x.co')).toBe(false);
+    expect(isOperator(list(['a@x.co']), undefined)).toBe(false);
+  });
+});
+
 describe('rangeStart', () => {
   const now = new Date('2026-11-17T15:30:00Z');
   it('computes the window start', () => {
@@ -149,6 +163,11 @@ describe('GET /api/usage', () => {
       controllers: [UsageController],
       providers: [
         UsageService,
+        OperatorGuard,
+        {
+          provide: ConfigService,
+          useValue: config({ USAGE_ADMIN_EMAILS: ['alice@x.co'] }),
+        },
         {
           provide: LitellmUsageClient,
           useValue: { calls, budgetUsd: () => Promise.resolve(5) },
@@ -172,6 +191,21 @@ describe('GET /api/usage', () => {
 
   it('needs a signed-in user', async () => {
     expect((await ctx.http().get('/api/usage')).status).toBe(401);
+  });
+
+  it('is only for operators: another signed-in user gets 403 and nothing is read', async () => {
+    calls.mockClear();
+    const res = await ctx.http().get('/api/usage').set(as('token-bob'));
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe('FORBIDDEN');
+    expect(calls).not.toHaveBeenCalled();
+  });
+
+  it('tells the web app whether the user is an operator', async () => {
+    const alice = await ctx.http().get('/api/auth/me').set(as('token-alice'));
+    const bob = await ctx.http().get('/api/auth/me').set(as('token-bob'));
+    expect(alice.body.isOperator).toBe(true);
+    expect(bob.body.isOperator).toBe(false);
   });
 
   it('returns the calls with totals, requests counted once per request id', async () => {
