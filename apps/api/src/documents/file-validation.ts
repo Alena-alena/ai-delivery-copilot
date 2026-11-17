@@ -27,11 +27,15 @@ const STATUS: Partial<Record<DocumentErrorCode, number>> = {
   UNSUPPORTED_TYPE: 415,
   FILE_CORRUPTED: 422,
   PROJECT_STORAGE_LIMIT: 409,
+  DUPLICATE_DOCUMENT: 409,
 };
 
-export function rejectDocument(code: DocumentErrorCode): never {
+export function rejectDocument(
+  code: DocumentErrorCode,
+  message?: string,
+): never {
   throw new HttpException(
-    { code, message: DOCUMENT_ERROR_MESSAGES[code] },
+    { code, message: message ?? DOCUMENT_ERROR_MESSAGES[code] },
     STATUS[code] ?? 422,
   );
 }

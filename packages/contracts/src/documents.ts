@@ -53,9 +53,21 @@ export const DOCUMENT_ERROR_MESSAGES = {
     'This project has reached its limit on the number or total size of files. Delete a file first.',
   PROJECT_TEXT_LIMIT:
     'Adding this document would exceed the text limit for the project. Remove another document first.',
+  DUPLICATE_DOCUMENT: 'This file is already in the project.',
   EXTRACTION_FAILED: 'Text extraction failed. Try again in a moment.',
 } as const;
 export type DocumentErrorCode = keyof typeof DOCUMENT_ERROR_MESSAGES;
+
+/**
+ * Failures that may go away on a second attempt. The others come from the file itself (a scan, a password, a
+ * damaged file), so running the same file again always fails the same way: the user has to upload a new one.
+ */
+const RETRYABLE_ERROR_CODES: readonly string[] = ['EXTRACTION_FAILED', 'EXTRACTION_TIMEOUT'];
+
+export function isRetryableDocumentError(code: string | null | undefined): boolean {
+  // An unknown or missing code is shown as a generic failure, so it can be tried again.
+  return !code || !(code in DOCUMENT_ERROR_MESSAGES) || RETRYABLE_ERROR_CODES.includes(code);
+}
 
 export function isDocumentErrorCode(code: string): code is DocumentErrorCode {
   return code in DOCUMENT_ERROR_MESSAGES;

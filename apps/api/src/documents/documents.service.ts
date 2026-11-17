@@ -202,7 +202,7 @@ export class DocumentsService {
   }
 
   /**
-   * Inserts the row unless the project is at its file-count or total-size cap. Counting and inserting happen
+   * Inserts the row unless the same content is already in the project or the project is at its file-count or total-size cap. Counting and inserting happen
    * under a per-project advisory lock, so two uploads at once cannot both slip under the cap.
    */
   private async insertWithinQuota(
@@ -224,6 +224,24 @@ export class DocumentsService {
         })
         .from(documents)
         .where(eq(documents.projectId, values.projectId));
+      // Same bytes already in this project: a second copy would only double the text the analysis reads.
+      // Checked under the same lock as the caps, so two simultaneous uploads of one file cannot both pass.
+      const [same] = await tx
+        .select({ name: documents.name })
+        .from(documents)
+        .where(
+          and(
+            eq(documents.projectId, values.projectId),
+            eq(documents.sha256, values.sha256),
+          ),
+        )
+        .limit(1);
+      if (same) {
+        rejectDocument(
+          'DUPLICATE_DOCUMENT',
+          `This file is already in the project as "${same.name}".`,
+        );
+      }
       if (
         (usage?.count ?? 0) >= maxDocuments ||
         (usage?.bytes ?? 0) + values.size > maxBytes

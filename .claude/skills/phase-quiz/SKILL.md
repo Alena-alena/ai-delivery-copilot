@@ -44,8 +44,14 @@ the questions in chat.
   from `RU_EXTRA` (`RU_EXTRA.quiz[<phase>]`, `RU_EXTRA.answers[<sessionId>]`), so add Russian text there.
   They render in the Self-check section as "Phase check" cards with ids `p<N>z<i>`; the user writes her answer
   in the box and opens the reference answer to compare.
-- Every question needs a reference answer (`a`) written to be checkable: 2-4 sentences, tied to a file or
-  decision in this repo.
+- Every question needs a detailed answer, added to the `DETAIL` object in the page source by question id
+  (`DETAIL.en.p4z1`, `DETAIL.ru.p4z1`; it overrides the short `a` text). Use four labelled parts separated by blank
+  lines, with `**bold**` labels: **In short** (the answer in one sentence), **Why** (the mechanism or reason),
+  **In this project** (the concrete file, setting or test where it shows up; for planned phases say "(planned)"),
+  **Without it** (what goes wrong otherwise). About 70-110 words, tied to real code, no invented facts.
+- Every question also needs a plain-language answer: add it to the `SIMPLE` object in the page source, keyed by the
+  question id (`SIMPLE.en.p4z1`, `SIMPLE.ru.p4z1`). One or two sentences, no jargon, with an everyday comparison
+  where it helps. The page shows it above the detailed answer as "In simple words".
 - Read the artifact with the Artifact tool, edit the saved file, publish to the same URL. Check both languages
   render (switch EN/RU) and that the question counts match before publishing.
 - Do not add questions that already exist (ids in the `quiz` db collection and the current QUIZ list).
