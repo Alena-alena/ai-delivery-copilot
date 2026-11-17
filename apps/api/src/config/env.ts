@@ -8,6 +8,10 @@ export const envSchema = z.object({
   AI_SERVICE_URL: z.url().default('http://localhost:8000'),
   AI_INTERNAL_TOKEN: z.string().min(16),
   AI_TIMEOUT_MS: z.coerce.number().int().positive().default(10_000),
+  // LiteLLM, only read by the Usage page (spend log and budget). Without the master key that page answers 503.
+  LITELLM_URL: z.url().default('http://localhost:4000'),
+  LITELLM_MASTER_KEY: z.string().min(1).optional(),
+  LITELLM_VIRTUAL_KEY: z.string().min(1).optional(),
   // Supabase Postgres. DATABASE_URL: transaction pooler (6543) used by the app.
   // DATABASE_MIGRATION_URL: session pooler (5432), used by drizzle-kit and the job queue (pg-boss),
   // both of which need a real session and not the transaction pooler.

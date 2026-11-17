@@ -55,7 +55,7 @@ const h = (s) => s;
 const shell = (inner, active) => `
 <header class="top"><div class="top-in">
   <a class="brand" href="#projects"><span class="logo"></span>Delivery Copilot</a>
-  <nav class="nav"><a href="#projects" class="${active === 'projects' ? 'on' : ''}">Projects</a><a href="#status">Status</a></nav>
+  <nav class="nav"><a href="#projects" class="${active === 'projects' ? 'on' : ''}">Projects</a><a href="#usage" class="${active === 'usage' ? 'on' : ''}">Usage</a><a href="#status">Status</a></nav>
   <span class="sp"></span>
   <div class="user"><span>anna@example.com</span><a class="btn sm" href="#signin">Sign out</a></div>
 </div></header>
@@ -123,6 +123,56 @@ function project() {
   return shell(inner, 'projects');
 }
 
+/* ---- Usage page: LLM calls and their cost ---- */
+const CALLS = [
+  ['2026-11-17 12:47', 'debug.complete', 'gpt-5.6-luna', 11, 4, 0.000007, 3.0, '9af30945'],
+  ['2026-11-17 11:22', 'analysis.contradictions', 'gpt-5.6-luna', 12040, 940, 0.0069, 27.1, 'b7d1c0aa'],
+  ['2026-11-17 11:21', 'analysis.gaps', 'gpt-5.6-luna', 9210, 1320, 0.0061, 22.5, 'b7d1c0aa'],
+  ['2026-11-17 11:20', 'analysis.requirements', 'gpt-5.6-luna', 18420, 2150, 0.0112, 41.8, 'b7d1c0aa'],
+  ['2026-11-17 11:19', 'analysis.requirements', 'gpt-5.6-luna', 17980, 1890, 0.0104, 38.2, 'b7d1c0aa'],
+  ['2026-11-16 16:03', 'tasks.generate', 'gpt-5.6-luna', 6120, 1480, 0.0049, 19.4, 'e41a77f2'],
+  ['2026-11-16 11:06', 'debug.complete', 'gpt-5.6-luna', 9, 4, 0.0000066, 2.4, 'fix-check-1'],
+  ['2026-11-16 11:04', 'debug.complete', 'gpt-5.6-luna', 30, 11, 0.0000352, 3.9, 'cfg-check'],
+  ['2026-11-16 10:50', 'debug.complete', 'gpt-5.6-luna', 9, 4, 0.0000066, 2.2, '66fbecef'],
+];
+const money = (n) => '$' + (n < 0.01 ? n.toPrecision(2) : n.toFixed(4));
+const num = (n) => n.toLocaleString('en-US');
+
+function usage() {
+  const total = CALLS.reduce((a, c) => a + c[5], 0);
+  const tokens = CALLS.reduce((a, c) => a + c[3] + c[4], 0);
+  const budget = 5;
+  const pct = Math.max(1, (total / budget) * 100);
+  const big = 'font-family:var(--font-head);font-size:26px';
+  let body;
+  if (S.state === 'loading')
+    body = `<div class="grid" style="margin-bottom:18px">${[1, 2, 3].map(() => `<div class="card pcard"><div class="skel" style="width:40%"></div><div class="skel" style="width:60%;height:24px"></div></div>`).join('')}</div>${skel(6, 6)}`;
+  else if (S.state === 'error') body = errBox('usage');
+  else if (S.state === 'empty')
+    body = `<div class="card empty"><b>No AI calls yet</b>Calls appear here after the first analysis runs.</div>`;
+  else
+    body = `
+    <div class="grid" style="margin-bottom:18px">
+      <div class="card pcard"><span class="faint">Spent, last 30 days</span><b style="${big}">${money(total)}</b><span class="muted">of $${budget.toFixed(2)} budget</span>
+        <div class="meter"><i style="width:${pct}%"></i></div></div>
+      <div class="card pcard"><span class="faint">AI calls</span><b style="${big}">${CALLS.length}</b><span class="muted">${new Set(CALLS.map((c) => c[7])).size} requests</span></div>
+      <div class="card pcard"><span class="faint">Tokens</span><b style="${big}">${num(tokens)}</b><span class="muted">input + output</span></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+      <div class="seg2"><button class="on">30 days</button><button>7 days</button><button>Today</button></div>
+      <div class="seg2"><button class="on">All operations</button><button>analysis</button><button>tasks</button><button>debug</button></div>
+    </div>
+    <div class="card tbl"><table>
+      <thead><tr><th>Time</th><th>Operation</th><th class="hide">Model</th><th class="r hide">Input</th><th class="r hide">Output</th><th class="r">Cost</th><th class="r hide">Latency</th><th class="hide">Request</th></tr></thead>
+      <tbody>${CALLS.map((c) => `<tr><td class="muted">${c[0]}</td><td class="name">${c[1]}</td><td class="hide muted">${c[2]}</td><td class="r hide mono">${num(c[3])}</td><td class="r hide mono">${num(c[4])}</td><td class="r mono"><b>${money(c[5])}</b></td><td class="r hide muted">${c[6].toFixed(1)} s</td><td class="hide mono faint">${c[7]}</td></tr>`).join('')}</tbody>
+    </table></div>
+    <p class="faint" style="margin-top:10px">Prompts and answers are not stored: client documents stay confidential. Cost comes from LiteLLM and may lag by about a minute.</p>`;
+  return shell(
+    `<div class="head"><div><h1>Usage</h1><p>Every AI call with its tokens and cost.</p></div></div>${body}`,
+    'usage',
+  );
+}
+
 function render() {
   const r = location.hash.slice(1) || 'signin';
   const page =
@@ -130,6 +180,7 @@ function render() {
       signin,
       projects,
       project,
+      usage,
       status: () =>
         shell(`<div class="card empty"><b>Status</b>System health page (unchanged).</div>`, ''),
     }[r] || signin;

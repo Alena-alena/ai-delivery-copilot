@@ -19,3 +19,4 @@ Status: **built** = in `apps/web` and matches the prototype; **approved** = prot
 | Requirements table and detail panel | todo | | Session 3 |
 | Gaps and contradictions | todo | | Session 3 |
 | Tasks and Linear export | todo | | Session 4 |
+| Usage (AI calls with tokens and cost) | approved | built | Data from the LiteLLM spend log via `/api/usage`. Every signed-in user sees the total spend until calls are tagged with a project |

@@ -26,6 +26,9 @@ export default function AppLayout() {
             <NavLink to="/" end className={navClass}>
               Projects
             </NavLink>
+            <NavLink to="/usage" className={navClass}>
+              Usage
+            </NavLink>
             <NavLink to="/status" className={navClass}>
               Status
             </NavLink>

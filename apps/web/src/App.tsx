@@ -8,6 +8,7 @@ import AuthPage from '@/pages/AuthPage';
 import HomePage from '@/pages/HomePage';
 import ProjectPage from '@/pages/ProjectPage';
 import ProjectsPage from '@/pages/ProjectsPage';
+import UsagePage from '@/pages/UsagePage';
 import LlmPingPage from '@/pages/LlmPingPage';
 
 export default function App() {
@@ -22,6 +23,7 @@ export default function App() {
           <Route element={<AppLayout />}>
             <Route index element={<ProjectsPage />} />
             <Route path="projects/:id" element={<ProjectPage />} />
+            <Route path="usage" element={<UsagePage />} />
             <Route path="status" element={<HomePage />} />
             {import.meta.env.DEV && <Route path="dev/llm" element={<LlmPingPage />} />}
           </Route>
