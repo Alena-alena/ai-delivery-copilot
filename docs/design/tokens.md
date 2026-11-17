@@ -42,7 +42,11 @@ Change a value in the prototype first, get it approved, then change it in the ap
 
 ## Mapping to the app
 
-The app currently uses the default shadcn theme (black primary, grey neutrals). Applying the design means setting the
+Applied in `apps/web/src/index.css` (2026-11-17). Setting the
 shadcn CSS variables (`--background`, `--card`, `--primary`, `--border`, `--muted`, `--destructive`, `--radius`) to the
 values above for `:root` and `.dark`, loading the heading font, and tightening the table and dialog components. That
 is the last session of roadmap phase 3.5.
+
+Extra tokens in the app: `success`, `success-bg`, `warning`, `warning-bg`, `destructive-bg` (used by `Badge` variants
+`success`, `warning`, `destructive`). Dark mode uses the `.dark` class set by `next-themes` (system by default, toggle in
+the header). Headings (`h1`, `h2`, card and dialog titles) use the serif `--font-heading`.

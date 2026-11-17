@@ -37,7 +37,7 @@ export default function DocumentViewerDialog({ projectId, documentId, onClose }:
           ) : (
             <ol className="flex flex-col gap-3">
               {data.segments.map((s) => (
-                <li key={s.id} className="rounded-md border p-3 text-sm">
+                <li key={s.id} className="rounded-lg border p-3 text-sm">
                   <div className="mb-1 text-xs text-muted-foreground">
                     Segment {s.index + 1}
                     {s.page ? ` · page ${s.page}` : ''}
