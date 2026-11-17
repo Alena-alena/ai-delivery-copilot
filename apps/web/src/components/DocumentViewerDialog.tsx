@@ -19,8 +19,8 @@ export default function DocumentViewerDialog({ projectId, documentId, onClose }:
 
   return (
     <Dialog open={documentId !== null} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[85vh] flex-col sm:max-w-2xl">
+        <DialogHeader className="shrink-0 pr-8">
           <DialogTitle>{data?.name ?? 'Document text'}</DialogTitle>
           <DialogDescription>
             {data
@@ -28,23 +28,26 @@ export default function DocumentViewerDialog({ projectId, documentId, onClose }:
               : 'Extracted text'}
           </DialogDescription>
         </DialogHeader>
-        {isPending ? (
-          <p className="text-sm text-muted-foreground">Loading text…</p>
-        ) : error ? (
-          <p className="text-sm text-destructive">Could not load the text: {error.message}</p>
-        ) : (
-          <ol className="flex flex-col gap-3">
-            {data.segments.map((s) => (
-              <li key={s.id} className="rounded-md border p-3 text-sm">
-                <div className="mb-1 text-xs text-muted-foreground">
-                  Segment {s.index + 1}
-                  {s.page ? ` · page ${s.page}` : ''}
-                </div>
-                <p className="whitespace-pre-wrap">{s.text}</p>
-              </li>
-            ))}
-          </ol>
-        )}
+        {/* Only this part scrolls; the title above stays in place. */}
+        <div className="-mr-2 min-h-0 flex-1 overflow-y-auto pr-2">
+          {isPending ? (
+            <p className="text-sm text-muted-foreground">Loading text…</p>
+          ) : error ? (
+            <p className="text-sm text-destructive">Could not load the text: {error.message}</p>
+          ) : (
+            <ol className="flex flex-col gap-3">
+              {data.segments.map((s) => (
+                <li key={s.id} className="rounded-md border p-3 text-sm">
+                  <div className="mb-1 text-xs text-muted-foreground">
+                    Segment {s.index + 1}
+                    {s.page ? ` · page ${s.page}` : ''}
+                  </div>
+                  <p className="whitespace-pre-wrap">{s.text}</p>
+                </li>
+              ))}
+            </ol>
+          )}
+        </div>
       </DialogContent>
     </Dialog>
   );

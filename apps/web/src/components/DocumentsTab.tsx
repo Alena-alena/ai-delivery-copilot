@@ -1,4 +1,9 @@
-import { documentErrorMessage, uploadFileSchema, type Document } from '@copilot/contracts';
+import {
+  documentErrorMessage,
+  isRetryableDocumentError,
+  uploadFileSchema,
+  type Document,
+} from '@copilot/contracts';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRef, useState, type DragEvent } from 'react';
 import { toast } from 'sonner';
@@ -222,7 +227,7 @@ export default function DocumentsTab({ projectId }: { projectId: string }) {
                         View text
                       </Button>
                     )}
-                    {d.status === 'extraction_failed' && (
+                    {d.status === 'extraction_failed' && isRetryableDocumentError(d.errorCode) && (
                       <Button
                         variant="outline"
                         size="sm"

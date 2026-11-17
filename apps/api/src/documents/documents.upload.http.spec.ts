@@ -222,16 +222,73 @@ describe('POST /api/projects/:id/documents', () => {
   });
 });
 
-describe('per-project upload caps', () => {
+describe('duplicate files', () => {
   const pdf = () => sample('01_clinicbook_requirements_en.pdf');
+
+  it('refuses the same content in the same project, names the existing file and stores nothing', async () => {
+    const projectId = await createProject();
+    expect((await upload(projectId, pdf(), 'first.pdf')).status).toBe(201);
+    const before = (await files()).length;
+    const res = await upload(projectId, pdf(), 'renamed.pdf');
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe('DUPLICATE_DOCUMENT');
+    expect(res.body.message).toContain('first.pdf');
+    expect((await files()).length).toBe(before);
+    expect(enqueueExtract).toHaveBeenCalledTimes(1);
+  });
+
+  it('allows the same content in another project', async () => {
+    const a = await createProject();
+    const b = await createProject();
+    expect((await upload(a, pdf(), 'x.pdf')).status).toBe(201);
+    expect((await upload(b, pdf(), 'x.pdf')).status).toBe(201);
+  });
+
+  it('allows the same name with different content', async () => {
+    const projectId = await createProject();
+    expect((await upload(projectId, pdf(), 'same.pdf')).status).toBe(201);
+    const other = sample('05_scanned_addendum_no_text.pdf');
+    expect((await upload(projectId, other, 'same.pdf')).status).toBe(201);
+  });
+
+  it('lets the file be uploaded again after the first copy is deleted', async () => {
+    const projectId = await createProject();
+    const first = await upload(projectId, pdf(), 'a.pdf');
+    await ctx
+      .http()
+      .delete(`/api/projects/${projectId}/documents/${first.body.id}`)
+      .set(as('token-alice'))
+      .expect(204);
+    expect((await upload(projectId, pdf(), 'a.pdf')).status).toBe(201);
+  });
+
+  it('lets only one of several simultaneous uploads of one file through', async () => {
+    limits.docs = 10;
+    const projectId = await createProject();
+    const results = await Promise.all(
+      Array.from({ length: 4 }, (_, i) =>
+        upload(projectId, pdf(), `r${i}.pdf`),
+      ),
+    );
+    expect(results.filter((r) => r.status === 201)).toHaveLength(1);
+    expect(
+      results.filter((r) => r.body.code === 'DUPLICATE_DOCUMENT'),
+    ).toHaveLength(3);
+  });
+});
+
+describe('per-project upload caps', () => {
+  const base = sample('01_clinicbook_requirements_en.pdf');
+  // Same valid PDF with different trailing bytes: distinct content, so the duplicate check does not fire.
+  const pdf = (n = 0) => Buffer.concat([base, Buffer.from(`\n% copy ${n}\n`)]);
 
   it('refuses a file beyond the document count with 409 and stores nothing', async () => {
     const projectId = await createProject();
     for (let i = 0; i < 3; i++) {
-      expect((await upload(projectId, pdf(), `d${i}.pdf`)).status).toBe(201);
+      expect((await upload(projectId, pdf(i), `d${i}.pdf`)).status).toBe(201);
     }
     const before = (await files()).length;
-    const res = await upload(projectId, pdf(), 'one-too-many.pdf');
+    const res = await upload(projectId, pdf(99), 'one-too-many.pdf');
     expect(res.status).toBe(409);
     expect(res.body.code).toBe('PROJECT_STORAGE_LIMIT');
     expect((await files()).length).toBe(before); // the file was removed again
@@ -243,27 +300,29 @@ describe('per-project upload caps', () => {
     limits.docs = 10;
     limits.mb = 1; // five 197 KB scans fit (985 KB), a sixth does not
     const projectId = await createProject();
-    const scan = sample('05_scanned_addendum_no_text.pdf');
+    const base = sample('05_scanned_addendum_no_text.pdf');
+    const scan = (n: number) =>
+      Buffer.concat([base, Buffer.from(`\n% ${n}\n`)]);
     for (let i = 0; i < 5; i++) {
-      expect((await upload(projectId, scan, `s${i}.pdf`)).status).toBe(201);
+      expect((await upload(projectId, scan(i), `s${i}.pdf`)).status).toBe(201);
     }
-    const res = await upload(projectId, scan, 's5.pdf');
+    const res = await upload(projectId, scan(5), 's5.pdf');
     expect(res.status).toBe(409);
     expect(res.body.code).toBe('PROJECT_STORAGE_LIMIT');
   });
 
   it('counts per project: another project is not affected', async () => {
     const full = await createProject();
-    for (let i = 0; i < 3; i++) await upload(full, pdf(), `d${i}.pdf`);
+    for (let i = 0; i < 3; i++) await upload(full, pdf(i), `d${i}.pdf`);
     const other = await createProject();
-    expect((await upload(other, pdf(), 'fresh.pdf')).status).toBe(201);
+    expect((await upload(other, pdf(0), 'fresh.pdf')).status).toBe(201);
   });
 
   it('holds the cap under simultaneous uploads', async () => {
     const projectId = await createProject();
     const results = await Promise.all(
       Array.from({ length: 6 }, (_, i) =>
-        upload(projectId, pdf(), `p${i}.pdf`),
+        upload(projectId, pdf(i), `p${i}.pdf`),
       ),
     );
     expect(results.filter((r) => r.status === 201)).toHaveLength(3);

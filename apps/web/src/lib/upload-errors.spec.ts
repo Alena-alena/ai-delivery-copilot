@@ -15,6 +15,11 @@ describe('uploadErrorMessage', () => {
     expect(uploadErrorMessage(err(413, 'FILE_TOO_LARGE'))).toMatch(/10 MB/);
   });
 
+  it('shows the duplicate message from the API, which names the matching file', () => {
+    const msg = 'This file is already in the project as "spec.pdf".';
+    expect(uploadErrorMessage(err(409, 'DUPLICATE_DOCUMENT', msg))).toBe(msg);
+  });
+
   it('does not call a session or network problem a text-extraction failure', () => {
     expect(uploadErrorMessage(err(401, 'UNAUTHORIZED'))).toMatch(/session has expired/);
     expect(uploadErrorMessage(err(0, 'NETWORK_ERROR', 'Network error during upload'))).toBe(

@@ -79,7 +79,11 @@ describe('listing and reading', () => {
   it("lists a project's documents newest first and shows one with its segments", async () => {
     const pid = await project();
     const first = await upload(pid, 'first.pdf');
-    const second = await upload(pid, 'second.pdf');
+    const second = await upload(
+      pid,
+      'second.pdf',
+      '05_scanned_addendum_no_text.pdf',
+    );
     await ctx.db.insert(documentSegments).values([
       {
         documentId: first.id,
@@ -196,7 +200,7 @@ describe('deleting', () => {
   it('deleting a project also removes its files', async () => {
     const pid = await project();
     await upload(pid, 'a.pdf');
-    await upload(pid, 'b.pdf');
+    await upload(pid, 'b.pdf', '05_scanned_addendum_no_text.pdf');
     const before = (await files()).length;
     await ctx.http().delete(`/api/projects/${pid}`).set(alice).expect(204);
     expect((await files()).length).toBe(before - 2);
