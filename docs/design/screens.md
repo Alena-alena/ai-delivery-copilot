@@ -5,16 +5,16 @@ Status: **built** = in `apps/web` and matches the prototype; **approved** = prot
 
 | Screen / dialog | Prototype | App | Notes |
 | --- | --- | --- | --- |
-| Sign in / sign up | prototyped | built (old look) | Warm direction approved; restyle in session 5 |
-| App shell (header, nav, theme toggle) | prototyped | built (old look) | The app has no theme toggle yet |
-| Projects list (full, loading, empty, error) | prototyped | built (old look) | Cards in the prototype, table in the app: decide |
-| New / Edit project dialog | prototyped | built (old look) | |
-| Delete project dialog | prototyped | built (old look) | |
-| Project page with tabs | prototyped | built (old look) | Analysis, Tasks, Settings tabs are placeholders |
-| Documents tab (upload, statuses, failed, duplicate notice) | prototyped | built (old look) | |
-| Delete document dialog | prototyped | built (old look) | |
-| View text dialog | prototyped | built (old look) | Fixed header, scrolling content |
-| Status page | todo | built (old look) | Not designed |
+| Sign in / sign up | prototyped | built | Sign-up form is not in the prototype yet (same card, one more field) |
+| App shell (header, nav, theme toggle) | prototyped | built | Theme follows the system until the toggle is used |
+| Projects list (full, loading, empty, error) | prototyped | built | Cards. The document count is not shown: the API does not return it yet |
+| New / Edit project dialog | prototyped | built | |
+| Delete project dialog | prototyped | built | |
+| Project page with tabs | prototyped | built | Analysis, Tasks, Settings tabs are placeholders; Edit/Delete are in the header |
+| Documents tab (upload, statuses, failed, duplicate notice) | prototyped | built | |
+| Delete document dialog | prototyped | built | |
+| View text dialog | prototyped | built | Fixed header, scrolling content |
+| Status page | todo | built (restyled by the theme only) | Not designed |
 | AI analysis: run, progress, failed | todo | | Session 3 |
 | Requirements table and detail panel | todo | | Session 3 |
 | Gaps and contradictions | todo | | Session 3 |

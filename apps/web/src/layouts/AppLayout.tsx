@@ -1,26 +1,40 @@
-import { Link, Outlet } from 'react-router-dom';
+import { NavLink, Outlet } from 'react-router-dom';
 import { toast } from 'sonner';
+import BrandMark from '@/components/BrandMark';
+import ThemeToggle from '@/components/ThemeToggle';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/auth';
+import { cn } from '@/lib/utils';
+
+const navClass = ({ isActive }: { isActive: boolean }) =>
+  cn(
+    'rounded-lg px-2.5 py-1.5 text-sm transition-colors',
+    isActive
+      ? 'bg-muted font-medium text-foreground'
+      : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+  );
 
 export default function AppLayout() {
   const { user, signOut } = useAuth();
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <header className="border-b">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
-          <nav className="flex items-center gap-4">
-            <Link to="/" className="font-semibold">
-              AI Delivery Copilot
-            </Link>
-            <Link to="/status" className="text-sm text-muted-foreground hover:text-foreground">
+      <header className="sticky top-0 z-10 border-b bg-card">
+        <div className="mx-auto flex h-13 max-w-[1080px] items-center gap-5 px-5">
+          <BrandMark />
+          <nav className="flex items-center gap-1" aria-label="Main">
+            <NavLink to="/" end className={navClass}>
+              Projects
+            </NavLink>
+            <NavLink to="/status" className={navClass}>
               Status
-            </Link>
+            </NavLink>
           </nav>
+          <span className="flex-1" />
+          <ThemeToggle />
           {user && (
             <div className="flex items-center gap-3 text-sm">
-              <span className="text-muted-foreground">{user.email}</span>
+              <span className="hidden text-muted-foreground sm:inline">{user.email}</span>
               <Button
                 variant="outline"
                 size="sm"
@@ -32,7 +46,7 @@ export default function AppLayout() {
           )}
         </div>
       </header>
-      <main className="mx-auto max-w-5xl px-4 py-8">
+      <main className="mx-auto max-w-[1080px] px-5 py-7">
         <Outlet />
       </main>
     </div>

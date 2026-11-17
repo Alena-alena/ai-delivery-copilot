@@ -3,6 +3,8 @@ import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { z } from 'zod';
+import BrandMark from '@/components/BrandMark';
+import ThemeToggle from '@/components/ThemeToggle';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Field, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field';
@@ -58,9 +60,18 @@ export default function AuthPage({ mode }: { mode: 'login' | 'signup' }) {
 
   return (
     <div className="mx-auto flex min-h-screen max-w-sm items-center px-4">
-      <Card className="w-full">
-        <CardHeader>
-          <CardTitle>{isLogin ? 'Sign in' : 'Create account'}</CardTitle>
+      <div className="fixed top-3 right-3">
+        <ThemeToggle />
+      </div>
+      <Card className="w-full gap-5 p-1.5">
+        <CardHeader className="gap-3">
+          <BrandMark linked={false} />
+          <CardTitle className="text-xl">{isLogin ? 'Sign in' : 'Create account'}</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            {isLogin
+              ? 'Welcome back. Use your email and password.'
+              : 'Use your email and a password.'}
+          </p>
         </CardHeader>
         <CardContent>
           {needsConfirmation ? (
@@ -125,7 +136,7 @@ export default function AuthPage({ mode }: { mode: 'login' | 'signup' }) {
                 <p className="text-sm text-muted-foreground">
                   {isLogin ? 'No account yet? ' : 'Already have an account? '}
                   <Link
-                    className="underline"
+                    className="font-semibold text-primary underline-offset-4 hover:underline"
                     to={isLogin ? '/signup' : '/login'}
                     state={location.state}
                   >

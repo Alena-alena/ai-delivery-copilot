@@ -5,14 +5,6 @@ import DeleteProjectDialog from '@/components/DeleteProjectDialog';
 import ProjectFormDialog from '@/components/ProjectFormDialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import { useProjects } from '@/lib/projects';
 
 export default function ProjectsPage() {
@@ -23,13 +15,28 @@ export default function ProjectsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Projects</h1>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="text-[26px] font-semibold">Projects</h1>
+          <p className="mt-1 text-muted-foreground">
+            Each project is one set of documents to analyse.
+          </p>
+        </div>
         <Button onClick={() => setCreating(true)}>New project</Button>
       </div>
 
       {isPending ? (
-        <p className="text-sm text-muted-foreground">Loading projects…</p>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-busy="true">
+          {[0, 1, 2].map((i) => (
+            <Card key={i}>
+              <CardContent className="flex flex-col gap-2">
+                <div className="h-4 w-3/5 animate-pulse rounded bg-muted" />
+                <div className="h-3.5 w-11/12 animate-pulse rounded bg-muted" />
+                <div className="h-3 w-1/3 animate-pulse rounded bg-muted" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       ) : error ? (
         <Card>
           <CardContent className="flex items-center justify-between pt-6 text-sm">
@@ -42,7 +49,7 @@ export default function ProjectsPage() {
       ) : data.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
-            <p className="font-medium">No projects yet</p>
+            <p className="font-heading text-lg font-semibold">No projects yet</p>
             <p className="max-w-sm text-sm text-muted-foreground">
               Create a project for a client or product, then upload its documents to analyse them.
             </p>
@@ -50,39 +57,34 @@ export default function ProjectsPage() {
           </CardContent>
         </Card>
       ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Description</TableHead>
-              <TableHead>Created</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {data.map((p) => (
-              <TableRow key={p.id}>
-                <TableCell className="font-medium">
-                  <Link className="underline-offset-4 hover:underline" to={`/projects/${p.id}`}>
-                    {p.name}
-                  </Link>
-                </TableCell>
-                <TableCell className="max-w-xs truncate text-muted-foreground">
-                  {p.description ?? '—'}
-                </TableCell>
-                <TableCell>{new Date(p.createdAt).toLocaleDateString()}</TableCell>
-                <TableCell className="space-x-2 text-right">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {data.map((p) => (
+            <Card key={p.id} className="transition-colors hover:border-primary">
+              <CardContent className="flex flex-col gap-1.5">
+                <Link
+                  to={`/projects/${p.id}`}
+                  className="font-heading text-lg font-semibold underline-offset-4 hover:underline"
+                >
+                  {p.name}
+                </Link>
+                <p className="line-clamp-2 min-h-10 text-muted-foreground">
+                  {p.description ?? 'No description'}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Updated {new Date(p.updatedAt).toLocaleDateString()}
+                </p>
+                <div className="mt-2 flex gap-2">
                   <Button variant="outline" size="sm" onClick={() => setEditing(p)}>
                     Edit
                   </Button>
-                  <Button variant="outline" size="sm" onClick={() => setDeleting(p)}>
+                  <Button variant="ghost" size="sm" onClick={() => setDeleting(p)}>
                     Delete
                   </Button>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       )}
 
       <ProjectFormDialog open={creating} onOpenChange={setCreating} />

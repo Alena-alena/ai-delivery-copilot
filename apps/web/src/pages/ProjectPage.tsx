@@ -49,22 +49,43 @@ export default function ProjectPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <Link to="/" className="text-sm text-muted-foreground underline-offset-4 hover:underline">
-          ← Projects
-        </Link>
-        <h1 className="mt-1 text-xl font-semibold">{project.name}</h1>
-        {project.description && (
-          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{project.description}</p>
-        )}
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="text-muted-foreground">
+            <Link to="/" className="underline-offset-4 hover:underline">
+              Projects
+            </Link>{' '}
+            / {project.name}
+          </p>
+          <h1 className="mt-1.5 text-[26px] font-semibold">{project.name}</h1>
+          {project.description && (
+            <p className="mt-1 max-w-2xl text-muted-foreground">{project.description}</p>
+          )}
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setEditing(true)}>
+            Edit
+          </Button>
+          <Button variant="outline" onClick={() => setDeleting(true)}>
+            Delete
+          </Button>
+        </div>
       </div>
 
-      <Tabs defaultValue="documents">
-        <TabsList>
-          <TabsTrigger value="documents">Documents</TabsTrigger>
-          <TabsTrigger value="analysis">Analysis</TabsTrigger>
-          <TabsTrigger value="tasks">Tasks</TabsTrigger>
-          <TabsTrigger value="settings">Settings</TabsTrigger>
+      <Tabs defaultValue="documents" className="gap-5">
+        <TabsList variant="line" className="h-auto w-full justify-start border-b pb-0">
+          <TabsTrigger className="flex-none px-3 py-2" value="documents">
+            Documents
+          </TabsTrigger>
+          <TabsTrigger className="flex-none px-3 py-2" value="analysis">
+            Analysis
+          </TabsTrigger>
+          <TabsTrigger className="flex-none px-3 py-2" value="tasks">
+            Tasks
+          </TabsTrigger>
+          <TabsTrigger className="flex-none px-3 py-2" value="settings">
+            Settings
+          </TabsTrigger>
         </TabsList>
         <TabsContent value="documents">
           <DocumentsTab projectId={project.id} />
@@ -78,19 +99,7 @@ export default function ProjectPage() {
           <ComingSoon phase="phase 5">Review generated tasks and send them to Linear.</ComingSoon>
         </TabsContent>
         <TabsContent value="settings">
-          <Card className="max-w-lg">
-            <CardHeader>
-              <CardTitle>Project settings</CardTitle>
-            </CardHeader>
-            <CardContent className="flex gap-2">
-              <Button variant="outline" onClick={() => setEditing(true)}>
-                Edit details
-              </Button>
-              <Button variant="destructive" onClick={() => setDeleting(true)}>
-                Delete project
-              </Button>
-            </CardContent>
-          </Card>
+          <ComingSoon phase="a later phase">Project settings will appear here.</ComingSoon>
         </TabsContent>
       </Tabs>
 

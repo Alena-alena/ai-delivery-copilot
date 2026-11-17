@@ -51,10 +51,16 @@ function StatusBadge({ status }: { status: Document['status'] }) {
         status === 'extraction_failed'
           ? 'destructive'
           : status === 'extracted'
-            ? 'default'
-            : 'secondary'
+            ? 'success'
+            : status === 'extracting'
+              ? 'warning'
+              : 'secondary'
       }
     >
+      <span
+        aria-hidden
+        className={`size-1.5 rounded-full bg-current ${status === 'extracting' ? 'animate-pulse' : ''}`}
+      />
       {STATUS_LABEL[status]}
     </Badge>
   );
@@ -116,11 +122,11 @@ export default function DocumentsTab({ projectId }: { projectId: string }) {
         }}
         onDragLeave={() => setDragging(false)}
         onDrop={onDrop}
-        className={`flex flex-col items-center gap-2 rounded-lg border-2 border-dashed p-8 text-center transition-colors ${
-          dragging ? 'border-primary bg-muted' : 'border-border'
+        className={`flex flex-col items-center gap-1.5 rounded-xl border-[1.5px] border-dashed p-6 text-center transition-colors ${
+          dragging ? 'border-primary bg-muted' : 'border-border bg-card'
         }`}
       >
-        <p className="font-medium">Drop PDF, DOCX or TXT files here</p>
+        <p className="font-semibold">Drop PDF, DOCX or TXT files here</p>
         <p className="text-sm text-muted-foreground">
           Up to 10 MB each. Text is extracted automatically.
         </p>
@@ -144,7 +150,10 @@ export default function DocumentsTab({ projectId }: { projectId: string }) {
       {uploads.length > 0 && (
         <ul className="flex flex-col gap-2" aria-label="Uploads in progress">
           {uploads.map((u) => (
-            <li key={u.key} className="rounded-md border p-3 text-sm">
+            <li
+              key={u.key}
+              className={`rounded-lg p-3 text-sm ${u.error ? 'bg-warning-bg text-warning' : 'border bg-card'}`}
+            >
               <div className="flex items-center justify-between gap-2">
                 <span className="truncate font-medium">{u.name}</span>
                 {u.error ? (
@@ -160,7 +169,7 @@ export default function DocumentsTab({ projectId }: { projectId: string }) {
                 )}
               </div>
               {u.error ? (
-                <p role="alert" className="mt-1 text-destructive">
+                <p role="alert" className="mt-1">
                   {u.error}
                 </p>
               ) : (
@@ -177,7 +186,15 @@ export default function DocumentsTab({ projectId }: { projectId: string }) {
       )}
 
       {isPending ? (
-        <p className="text-sm text-muted-foreground">Loading documents…</p>
+        <div className="flex flex-col gap-3 rounded-xl border bg-card p-4" aria-busy="true">
+          {[0, 1, 2].map((i) => (
+            <div
+              key={i}
+              className="h-4 animate-pulse rounded bg-muted"
+              style={{ width: `${90 - i * 12}%` }}
+            />
+          ))}
+        </div>
       ) : error ? (
         <Card>
           <CardContent className="flex items-center justify-between pt-6 text-sm">
@@ -188,7 +205,12 @@ export default function DocumentsTab({ projectId }: { projectId: string }) {
           </CardContent>
         </Card>
       ) : data.length === 0 ? (
-        <p className="py-6 text-center text-sm text-muted-foreground">No documents yet.</p>
+        <Card>
+          <CardContent className="py-8 text-center text-muted-foreground">
+            <p className="font-heading text-lg font-semibold text-foreground">No documents yet</p>
+            Drop a PDF, DOCX or TXT above. Text is extracted automatically.
+          </CardContent>
+        </Card>
       ) : (
         <Table>
           <TableHeader>
@@ -204,7 +226,7 @@ export default function DocumentsTab({ projectId }: { projectId: string }) {
             {data.map((d) => (
               <TableRow key={d.id}>
                 <TableCell className="max-w-xs">
-                  <div className="truncate font-medium">{d.name}</div>
+                  <div className="truncate font-semibold">{d.name}</div>
                   {d.status === 'extraction_failed' && (
                     <p className="mt-1 whitespace-normal text-xs text-destructive">
                       {documentErrorMessage(d.errorCode)}
@@ -250,7 +272,7 @@ export default function DocumentsTab({ projectId }: { projectId: string }) {
                     >
                       Download
                     </Button>
-                    <Button variant="outline" size="sm" onClick={() => setDeleting(d)}>
+                    <Button variant="ghost" size="sm" onClick={() => setDeleting(d)}>
                       Delete
                     </Button>
                   </div>
