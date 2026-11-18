@@ -244,3 +244,23 @@ async def test_a_quote_with_tag_like_text_still_verifies():
     [req] = (await extract_requirements(llm, [doc], request_id="r")).requirements
     assert req.source_unverified is False
     assert req.sources[0].quote == "Use the <segment> element to group the page content."
+
+
+def test_a_group_never_exceeds_the_budget_even_when_earlier_documents_filled_it():
+    from app.extraction.tokens import count_tokens
+
+    first = DocumentIn(id="a", name="a", segments=[SegmentIn(id="a1", text="word " * 300)])
+    second = DocumentIn(
+        id="b",
+        name="b",
+        segments=[SegmentIn(id=f"b{i}", text="word " * 60) for i in range(3)],
+    )
+    budget = 450
+    groups = chunk_documents([first, second], budget=budget)
+
+    def size(group):
+        return sum(count_tokens(s.text) + 20 for d in group for s in d.segments)
+
+    assert all(size(g) <= budget for g in groups), [size(g) for g in groups]
+    flat = [s.id for g in groups for d in g for s in d.segments]
+    assert flat == ["a1", "b0", "b1", "b2"]  # nothing lost, order kept

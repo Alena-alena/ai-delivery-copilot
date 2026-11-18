@@ -5,7 +5,7 @@ import type {
   Requirement,
   UpdateRequirementInput,
 } from '@copilot/contracts';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { apiGet, apiPatch, apiPost } from '@/lib/api';
 
 export const analysisKeys = {
@@ -16,13 +16,30 @@ export const analysisKeys = {
 const ACTIVE = new Set<AnalysisRun['status']>(['queued', 'running']);
 export const isActive = (run: AnalysisRun | null | undefined) => !!run && ACTIVE.has(run.status);
 
-/** The latest run and what a new run would read. Polls every 2 s while a run is queued or running. */
-export function useAnalysis(projectId: string) {
-  return useQuery({
+/**
+ * The overview query. It polls every 2 s while a run is queued or running, and when a poll sees the run
+ * finish it also invalidates the requirements: they were saved by the worker, and the list on screen was
+ * read before they existed.
+ */
+export function overviewQueryOptions(qc: QueryClient, projectId: string) {
+  return {
     queryKey: analysisKeys.overview(projectId),
-    queryFn: () => apiGet<AnalysisOverview>(`/projects/${projectId}/analysis`),
-    refetchInterval: (q) => (isActive(q.state.data?.run) ? 2000 : false),
-  });
+    queryFn: async () => {
+      const before = qc.getQueryData<AnalysisOverview>(analysisKeys.overview(projectId))?.run;
+      const next = await apiGet<AnalysisOverview>(`/projects/${projectId}/analysis`);
+      if (isActive(before) && !isActive(next.run)) {
+        void qc.invalidateQueries({ queryKey: analysisKeys.requirements(projectId) });
+      }
+      return next;
+    },
+    refetchInterval: (q: { state: { data?: AnalysisOverview } }) =>
+      isActive(q.state.data?.run) ? 2000 : false,
+  };
+}
+
+export function useAnalysis(projectId: string) {
+  const qc = useQueryClient();
+  return useQuery(overviewQueryOptions(qc, projectId));
 }
 
 export function useRequirements(projectId: string) {

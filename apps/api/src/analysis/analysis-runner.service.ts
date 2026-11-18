@@ -152,6 +152,23 @@ export class AnalysisRunner {
     documentCount: number,
     result: RequirementsResponse,
   ): Promise<void> {
+    // Pages of the cited segments, read once and before the lock is taken.
+    const segmentIds = [
+      ...new Set(
+        result.requirements.flatMap((r) => r.sources.map((s) => s.segment_id)),
+      ),
+    ];
+    const pageBySegment = new Map<string, number | null>(
+      segmentIds.length === 0
+        ? []
+        : (
+            await this.db
+              .select({ id: documentSegments.id, page: documentSegments.page })
+              .from(documentSegments)
+              .where(inArray(documentSegments.id, segmentIds))
+          ).map((x) => [x.id, x.page]),
+    );
+
     await this.db.transaction(async (tx) => {
       await tx.execute(
         sql`select pg_advisory_xact_lock(hashtext(${projectId}))`,
@@ -186,41 +203,48 @@ export class AnalysisRunner {
         .where(eq(requirements.projectId, projectId));
       const seen = new Set(kept.map((k) => titleKey(k.title)));
       let next = (max?.n ?? 0) + 1;
-      let inserted = 0;
 
+      const fresh: {
+        r: (typeof result.requirements)[number];
+        number: number;
+      }[] = [];
       for (const r of result.requirements) {
         const key = titleKey(r.title);
         if (seen.has(key)) continue;
         seen.add(key);
-        const [row] = await tx
+        fresh.push({ r, number: next++ });
+      }
+      const inserted = fresh.length;
+      if (inserted > 0) {
+        const rows = await tx
           .insert(requirements)
-          .values({
-            projectId,
-            runId,
-            number: next++,
-            title: r.title,
-            description: r.description,
-            type: r.type,
-            priority: r.priority,
-            confidence: r.confidence,
-            aiComment: r.ai_comment,
-            sourceUnverified: r.source_unverified,
-          })
-          .returning({ id: requirements.id });
-        inserted++;
-        for (const s of r.sources) {
-          const [seg] = await tx
-            .select({ page: documentSegments.page })
-            .from(documentSegments)
-            .where(eq(documentSegments.id, s.segment_id));
-          await tx.insert(requirementSources).values({
-            requirementId: row!.id,
+          .values(
+            fresh.map(({ r, number }) => ({
+              projectId,
+              runId,
+              number,
+              title: r.title,
+              description: r.description,
+              type: r.type,
+              priority: r.priority,
+              confidence: r.confidence,
+              aiComment: r.ai_comment,
+              sourceUnverified: r.source_unverified,
+            })),
+          )
+          .returning({ id: requirements.id, number: requirements.number });
+        const idByNumber = new Map(rows.map((x) => [x.number, x.id]));
+        const sources = fresh.flatMap(({ r, number }) =>
+          r.sources.map((s) => ({
+            requirementId: idByNumber.get(number)!,
             documentId: s.document_id,
             segmentId: s.segment_id,
-            page: seg?.page ?? null,
+            page: pageBySegment.get(s.segment_id) ?? null,
             quote: s.quote,
-          });
-        }
+          })),
+        );
+        if (sources.length > 0)
+          await tx.insert(requirementSources).values(sources);
       }
 
       await tx

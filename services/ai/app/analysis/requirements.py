@@ -61,20 +61,18 @@ def chunk_documents(
 
     for doc in documents:
         piece: list[SegmentIn] = []
-        piece_tokens = 0
         for seg in doc.segments:
             t = count_tokens(seg.text) + 20
-            if piece and used + piece_tokens + t > budget:
-                current.append(DocumentIn(id=doc.id, name=doc.name, segments=piece))
+            # `used` counts everything already in the group, including the earlier documents and this piece
+            if used + t > budget and (piece or current):
+                if piece:
+                    current.append(DocumentIn(id=doc.id, name=doc.name, segments=piece))
+                    piece = []
                 flush()
-                piece, piece_tokens = [], 0
             piece.append(seg)
-            piece_tokens += t
+            used += t
         if piece:
-            if used + piece_tokens > budget:
-                flush()
             current.append(DocumentIn(id=doc.id, name=doc.name, segments=piece))
-            used += piece_tokens
     flush()
     return chunks
 

@@ -266,6 +266,45 @@ describe('overview and start', () => {
   });
 });
 
+describe('stale runs', () => {
+  it('marks a run that has been active for far too long as failed, so a new one can start', async () => {
+    const pid = await project();
+    await doc(pid, 'spec.pdf', ['a']);
+    await ctx.db.insert(analysisRuns).values({
+      projectId: pid,
+      status: 'running',
+      createdAt: new Date(Date.now() - 60 * 60 * 1000), // an hour ago: the worker is gone
+    });
+    const overview = await ctx
+      .http()
+      .get(`/api/projects/${pid}/analysis`)
+      .set(alice);
+    expect(overview.body.run).toMatchObject({
+      status: 'failed',
+      errorCode: 'ANALYSIS_FAILED',
+    });
+    expect(
+      (await ctx.http().post(`/api/projects/${pid}/analysis`).set(alice))
+        .status,
+    ).toBe(201);
+  });
+
+  it('leaves a recent active run alone', async () => {
+    const pid = await project();
+    await doc(pid, 'spec.pdf', ['a']);
+    await ctx
+      .http()
+      .post(`/api/projects/${pid}/analysis`)
+      .set(alice)
+      .expect(201);
+    const overview = await ctx
+      .http()
+      .get(`/api/projects/${pid}/analysis`)
+      .set(alice);
+    expect(overview.body.run.status).toBe('queued');
+  });
+});
+
 describe('executing a run', () => {
   it('sends the segments, saves numbered requirements with page and quote, and records usage', async () => {
     const pid = await project();

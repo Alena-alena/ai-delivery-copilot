@@ -10,8 +10,9 @@ export const envSchema = z.object({
   AI_TIMEOUT_MS: z.coerce.number().int().positive().default(10_000),
   // One analysis may call the LLM several times in a row (one per group of documents), so it waits longer.
   AI_ANALYSIS_TIMEOUT_MS: z.coerce.number().int().positive().default(600_000),
-  // Rough price used only for the estimate shown before a run (USD per million input tokens).
-  ANALYSIS_COST_PER_MTOK_USD: z.coerce.number().positive().default(1),
+  // Rough price for the estimate shown before a run: USD per million INPUT tokens, with the output a typical analysis
+  // produces already included (output is larger than the input). Calibrated on the sample documents: $0.0045 for 1,971 input tokens.
+  ANALYSIS_COST_PER_MTOK_USD: z.coerce.number().positive().default(2.5),
   // LiteLLM, only read by the Usage page (spend log and budget). Without the master key that page answers 503.
   LITELLM_URL: z.url().default('http://localhost:4000'),
   LITELLM_MASTER_KEY: z.string().min(1).optional(),
