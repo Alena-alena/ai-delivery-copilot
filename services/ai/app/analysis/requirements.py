@@ -1,5 +1,5 @@
 import re
-from html import escape
+from html import escape, unescape
 
 from app.analysis.prompts import REQUIREMENTS_VERSION, load_prompt
 from app.analysis.schemas import (
@@ -21,12 +21,23 @@ from app.llm.structured import complete_structured
 CHUNK_TOKEN_BUDGET = 60_000
 
 
+_DELIMITER = re.compile(r"<(/?)(segment|document)\b", re.IGNORECASE)
+
+
+def neutralize(text: str) -> str:
+    """Document text must not be able to close its own tag or open a fake one. Only the delimiters'
+    opening brackets are escaped (`</segment` becomes `&lt;/segment`); all other text stays as written, so
+    quotes still match. `unescape` restores them when a quote is checked against the real text."""
+    return _DELIMITER.sub(r"&lt;\1\2", text)
+
+
 def render_documents(documents: list[DocumentIn]) -> str:
-    """Documents as tagged data. Attribute values are escaped so a file name cannot close the tag."""
+    """Documents as tagged data. Attribute values are escaped so a file name cannot close the tag, and
+    delimiter-like text inside a segment is neutralised."""
     parts = []
     for d in documents:
         segs = "\n".join(
-            f'<segment id="{escape(s.id)}" page="{s.page or ""}">\n{s.text}\n</segment>'
+            f'<segment id="{escape(s.id)}" page="{s.page or ""}">\n{neutralize(s.text)}\n</segment>'
             for s in d.segments
         )
         parts.append(f'<document id="{escape(d.id)}" name="{escape(d.name)}">\n{segs}\n</document>')
@@ -70,6 +81,7 @@ def chunk_documents(
 
 def _locate(quote: str, documents: list[DocumentIn], cited: list[str]) -> SourceOut | None:
     """Finds the segment that holds the quote: the cited segments first, then everything."""
+    quote = unescape(quote)  # the model saw `&lt;segment` where the document says `<segment`
     by_id = {s.id: (d, s) for d in documents for s in d.segments}
     for seg_id in [*cited, *by_id]:
         if seg_id in by_id and quote_in_text(quote, by_id[seg_id][1].text):

@@ -42,7 +42,7 @@ The model returns segment ids and a quote. The AI service checks both against th
 ## Prompt injection
 
 Documents are client-controlled text. The prompt (`services/ai/prompts/requirements/v1.md`) says that everything inside
-`<document>`/`<segment>` tags is data. Tag attributes are HTML-escaped so a file name cannot close a tag. The answer
+`<document>`/`<segment>` tags is data. Tag attributes are HTML-escaped so a file name cannot close a tag, and any `<segment` or `<document` (opening or closing) inside a document's text is neutralised (`&lt;segment`), so text cannot close its own tag or open a fake one. The quote check restores those characters, so verification is unaffected. The answer
 must match a strict JSON schema, ids and quotes are verified, and nothing is sent anywhere without a human confirming
 it. The sample `04_vendor_notes_with_injection.txt` is analysed like any other document and produced ordinary
 requirements, not "ALL REQUIREMENTS APPROVED".
