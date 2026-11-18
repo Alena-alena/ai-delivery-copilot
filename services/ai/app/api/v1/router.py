@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends
 
+from app.api.v1.analysis import router as analysis_router
 from app.api.v1.debug import router as debug_router
 from app.api.v1.documents import router as documents_router
 from app.config import get_settings
@@ -14,6 +15,7 @@ def ping() -> dict[str, str]:
 
 
 router.include_router(documents_router)
+router.include_router(analysis_router)
 
 
 if get_settings().enable_dev_endpoints:

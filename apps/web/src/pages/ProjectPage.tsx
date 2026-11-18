@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import AnalysisTab from '@/components/AnalysisTab';
 import DeleteProjectDialog from '@/components/DeleteProjectDialog';
 import DocumentsTab from '@/components/DocumentsTab';
 import ProjectFormDialog from '@/components/ProjectFormDialog';
@@ -91,9 +92,7 @@ export default function ProjectPage() {
           <DocumentsTab projectId={project.id} />
         </TabsContent>
         <TabsContent value="analysis">
-          <ComingSoon phase="phase 4">
-            Requirements, gaps and contradictions appear here.
-          </ComingSoon>
+          <AnalysisTab projectId={project.id} />
         </TabsContent>
         <TabsContent value="tasks">
           <ComingSoon phase="phase 5">Review generated tasks and send them to Linear.</ComingSoon>

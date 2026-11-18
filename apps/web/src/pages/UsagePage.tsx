@@ -1,5 +1,6 @@
 import { USAGE_RANGES, type UsageRange } from '@copilot/contracts';
 import { useState } from 'react';
+import Segmented from '@/components/Segmented';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import {
@@ -11,7 +12,6 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { formatCost, useUsage } from '@/lib/usage';
-import { cn } from '@/lib/utils';
 
 const RANGE_LABEL: Record<UsageRange, string> = {
   '30d': '30 days',
@@ -23,43 +23,6 @@ const RANGE_TITLE: Record<UsageRange, string> = {
   '7d': 'Spent, last 7 days',
   today: 'Spent today',
 };
-
-function Segmented<T extends string>({
-  value,
-  options,
-  onChange,
-  label,
-}: {
-  value: T;
-  options: { value: T; label: string }[];
-  onChange: (v: T) => void;
-  label: string;
-}) {
-  return (
-    <div
-      role="group"
-      aria-label={label}
-      className="inline-flex gap-0.5 rounded-lg bg-muted p-[3px]"
-    >
-      {options.map((o) => (
-        <button
-          key={o.value}
-          type="button"
-          aria-pressed={o.value === value}
-          onClick={() => onChange(o.value)}
-          className={cn(
-            'rounded-md px-2.5 py-1 text-xs transition-colors',
-            o.value === value
-              ? 'bg-card font-semibold text-foreground shadow-xs'
-              : 'text-muted-foreground hover:text-foreground',
-          )}
-        >
-          {o.label}
-        </button>
-      ))}
-    </div>
-  );
-}
 
 function Stat({
   title,

@@ -13,6 +13,7 @@ import { JobsModule } from './jobs/jobs.module.js';
 import { StorageModule } from './storage/storage.module.js';
 import { ProjectsModule } from './projects/projects.module.js';
 import { UsageModule } from './usage/usage.module.js';
+import { AnalysisModule } from './analysis/analysis.module.js';
 import { DevController } from './dev/dev.controller.js';
 import { DevOnlyGuard } from './dev/dev-only.guard.js';
 import { HealthController } from './health/health.controller.js';
@@ -25,6 +26,7 @@ import { HealthController } from './health/health.controller.js';
     ProjectsModule,
     DocumentsModule,
     UsageModule,
+    AnalysisModule,
     JobsModule,
     StorageModule,
     ConfigModule.forRoot({

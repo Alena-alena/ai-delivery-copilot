@@ -1,11 +1,22 @@
 /* Fake data and tiny renderer. Throwaway code: only the decisions it produces are kept. */
-const S = { theme: 'light', state: 'full', route: 'signin', tab: 'documents' };
+const S = { theme: 'light', state: 'full', run: 'done', route: 'signin', tab: 'documents' };
 if (matchMedia('(prefers-color-scheme: dark)').matches) S.theme = 'dark'; // first visit follows the system
 try {
   Object.assign(S, JSON.parse(localStorage.getItem('proto') || '{}'));
 } catch (e) {}
 const q = new URLSearchParams(location.search);
-for (const k of ['theme', 'state']) if (q.get(k)) S[k] = q.get(k);
+// Only known values are accepted from the URL: they end up in rendered HTML.
+const ALLOWED = {
+  theme: ['light', 'dark'],
+  state: ['full', 'loading', 'empty', 'error'],
+  run: ['none', 'running', 'failed', 'done'],
+  tab: ['documents', 'analysis', 'tasks', 'settings'],
+};
+const DEFAULTS = { theme: 'light', state: 'full', run: 'done', tab: 'documents' };
+for (const k of Object.keys(ALLOWED)) {
+  if (ALLOWED[k].includes(q.get(k))) S[k] = q.get(k);
+  if (!ALLOWED[k].includes(S[k])) S[k] = DEFAULTS[k]; // also covers a bad value saved in localStorage
+}
 
 const PROJECTS = [
   {
@@ -118,7 +129,9 @@ function project() {
   ${
     S.tab === 'documents'
       ? `<div class="drop"><b>Drop PDF, DOCX or TXT files here</b>Up to 10 MB each. Text is extracted automatically. <button class="btn sm" style="margin-left:6px">Choose files</button></div>${documents()}`
-      : `<div class="card empty"><b>${S.tab[0].toUpperCase() + S.tab.slice(1)}</b>Designed in a later session of this phase.</div>`
+      : S.tab === 'analysis'
+        ? analysisTab()
+        : `<div class="card empty"><b>${esc(S.tab[0].toUpperCase() + S.tab.slice(1))}</b>Designed in a later session of this phase.</div>`
   }`;
   return shell(inner, 'projects');
 }
@@ -264,6 +277,8 @@ function dialogHtml() {
     const doc = D.type === 'deldoc';
     inner = `<div><h2>Delete “${esc(D.name)}”?</h2><p class="sub">${doc ? 'The file and its extracted text will be deleted. This cannot be undone.' : 'The project and everything in it will be deleted. This cannot be undone.'}</p></div>
       <div class="foot"><button class="btn" data-act="close" ${busy}>Cancel</button><button class="btn danger" data-act="confirmdel" ${busy}>${D.busy ? 'Deleting…' : 'Delete'}</button></div>`;
+  } else if (D.type === 'custom') {
+    inner = D.render(); // feature dialogs (analysis.js) bring their own content
   } else if (D.type === 'view') {
     const body =
       S.state === 'loading'
@@ -276,7 +291,7 @@ function dialogHtml() {
             ).join('');
     inner = `<div style="flex-shrink:0"><h2>${esc(D.name)}</h2><p class="sub">${S.state === 'full' ? '10 segments · 1,240 tokens' : 'Extracted text'}</p></div><div class="scroll">${body}</div>`;
   }
-  return `<div class="overlay" data-act="overlay"><div class="dialog ${D.type === 'view' ? 'wide' : ''}" role="dialog" aria-modal="true">${x}${inner}</div></div>`;
+  return `<div class="overlay" data-act="overlay"><div class="dialog ${D.type === 'view' || D.wide ? 'wide' : ''}" role="dialog" aria-modal="true">${x}${inner}</div></div>`;
 }
 function toast(msg) {
   let box = $('.toasts');
