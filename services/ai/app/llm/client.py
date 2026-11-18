@@ -55,6 +55,7 @@ class LLMClient:
         operation: str,
         request_id: str,
         temperature: float | None = None,
+        response_format: dict | None = None,
     ) -> Completion:
         params: dict = {
             "model": self._alias,
@@ -69,6 +70,8 @@ class LLMClient:
         }
         if temperature is not None:
             params["temperature"] = temperature
+        if response_format is not None:
+            params["response_format"] = response_format
 
         started = time.perf_counter()
         try:

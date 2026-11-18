@@ -65,3 +65,13 @@ The job queue (pg-boss) keeps its own tables in a separate `pgboss` schema in th
 - **Another user's data returns 404, not 403**, so the API does not confirm that an id exists.
 - **Files are not cascaded by the database.** Deleting a document or a project removes the rows first and then
   the files, so a leftover file (harmless) is possible but a row pointing at a missing file is not.
+
+## Analysis (phase 4)
+
+| Table | Holds |
+| --- | --- |
+| `analysis_runs` | One analysis of a project: status (`queued`, `running`, `succeeded`, `failed`, `cancelled`), prompt version, model, tokens, cost, requirements found, error code. A partial unique index allows one `queued`/`running` run per project |
+| `requirements` | What the AI proposed and a person reviews: `number` (REQ-001, unique per project and never reused), title, description, type, priority, status (`ai_suggested`, `confirmed`, `needs_clarification`, `rejected`), `edited_by_user`, confidence, AI comment, `source_unverified`, `run_id` |
+| `requirement_sources` | Where a requirement comes from: document, segment (set null if the text is re-extracted), page and quote (copied, so they survive) |
+
+See `docs/analysis-pipeline.md` for the flow and the rules.

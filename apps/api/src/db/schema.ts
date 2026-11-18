@@ -1,5 +1,7 @@
 import { sql } from 'drizzle-orm';
 import {
+  boolean,
+  doublePrecision,
   index,
   integer,
   pgEnum,
@@ -136,4 +138,121 @@ export const documentSegments = pgTable(
       t.index,
     ),
   ],
+).enableRLS();
+
+export const analysisRunStatus = pgEnum('analysis_run_status', [
+  'queued',
+  'running',
+  'succeeded',
+  'failed',
+  'cancelled',
+]);
+
+/**
+ * One analysis of a project's documents. The status is its own state machine, separate from the document
+ * statuses. At most one run per project is queued or running at a time (partial unique index).
+ */
+export const analysisRuns = pgTable(
+  'analysis_runs',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    projectId: uuid('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    status: analysisRunStatus('status').notNull().default('queued'),
+    /** Which prompt produced the result, so two runs can be compared. */
+    promptVersion: text('prompt_version'),
+    model: text('model'),
+    promptTokens: integer('prompt_tokens').notNull().default(0),
+    completionTokens: integer('completion_tokens').notNull().default(0),
+    costUsd: doublePrecision('cost_usd').notNull().default(0),
+    requirementsFound: integer('requirements_found').notNull().default(0),
+    documentCount: integer('document_count').notNull().default(0),
+    errorCode: text('error_code'),
+    startedBy: uuid('started_by').references(() => profiles.id, {
+      onDelete: 'set null',
+    }),
+    createdAt: createdAt(),
+    finishedAt: timestamp('finished_at', { withTimezone: true }),
+  },
+  (t) => [
+    index('analysis_runs_project_id_idx').on(t.projectId, t.createdAt),
+    uniqueIndex('analysis_runs_one_active_per_project')
+      .on(t.projectId)
+      .where(sql`${t.status} in ('queued', 'running')`),
+  ],
+).enableRLS();
+
+export const requirementType = pgEnum('requirement_type', [
+  'functional',
+  'non_functional',
+  'constraint',
+]);
+export const requirementPriority = pgEnum('requirement_priority', [
+  'urgent',
+  'high',
+  'medium',
+  'low',
+]);
+export const requirementStatus = pgEnum('requirement_status', [
+  'ai_suggested',
+  'confirmed',
+  'needs_clarification',
+  'rejected',
+]);
+export const confidenceLevel = pgEnum('confidence_level', [
+  'high',
+  'medium',
+  'low',
+]);
+
+/** A requirement the AI proposed and a person reviews. `number` is the human-readable REQ-001 per project. */
+export const requirements = pgTable(
+  'requirements',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    projectId: uuid('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    /** The run that created it; a re-run only replaces untouched drafts of earlier runs. */
+    runId: uuid('run_id').references(() => analysisRuns.id, {
+      onDelete: 'set null',
+    }),
+    number: integer('number').notNull(),
+    title: text('title').notNull(),
+    description: text('description').notNull(),
+    type: requirementType('type').notNull(),
+    priority: requirementPriority('priority').notNull(),
+    status: requirementStatus('status').notNull().default('ai_suggested'),
+    editedByUser: boolean('edited_by_user').notNull().default(false),
+    confidence: confidenceLevel('confidence').notNull(),
+    aiComment: text('ai_comment').notNull().default(''),
+    sourceUnverified: boolean('source_unverified').notNull().default(false),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    uniqueIndex('requirements_project_number_uq').on(t.projectId, t.number),
+    index('requirements_project_status_idx').on(t.projectId, t.status),
+  ],
+).enableRLS();
+
+/** Where a requirement comes from. The quote and page are copied, so they survive a re-extraction. */
+export const requirementSources = pgTable(
+  'requirement_sources',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    requirementId: uuid('requirement_id')
+      .notNull()
+      .references(() => requirements.id, { onDelete: 'cascade' }),
+    documentId: uuid('document_id')
+      .notNull()
+      .references(() => documents.id, { onDelete: 'cascade' }),
+    segmentId: uuid('segment_id').references(() => documentSegments.id, {
+      onDelete: 'set null',
+    }),
+    page: integer('page'),
+    quote: text('quote').notNull(),
+  },
+  (t) => [index('requirement_sources_requirement_id_idx').on(t.requirementId)],
 ).enableRLS();

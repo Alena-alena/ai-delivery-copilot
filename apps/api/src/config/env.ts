@@ -8,10 +8,24 @@ export const envSchema = z.object({
   AI_SERVICE_URL: z.url().default('http://localhost:8000'),
   AI_INTERNAL_TOKEN: z.string().min(16),
   AI_TIMEOUT_MS: z.coerce.number().int().positive().default(10_000),
+  // One analysis may call the LLM several times in a row (one per group of documents), so it waits longer.
+  AI_ANALYSIS_TIMEOUT_MS: z.coerce.number().int().positive().default(600_000),
+  // Rough price used only for the estimate shown before a run (USD per million input tokens).
+  ANALYSIS_COST_PER_MTOK_USD: z.coerce.number().positive().default(1),
   // LiteLLM, only read by the Usage page (spend log and budget). Without the master key that page answers 503.
   LITELLM_URL: z.url().default('http://localhost:4000'),
   LITELLM_MASTER_KEY: z.string().min(1).optional(),
   LITELLM_VIRTUAL_KEY: z.string().min(1).optional(),
+  // Operators (comma-separated emails) may read the Usage page: it shows spend across all users. Empty means nobody.
+  USAGE_ADMIN_EMAILS: z
+    .string()
+    .default('')
+    .transform((v) =>
+      v
+        .split(',')
+        .map((e) => e.trim().toLowerCase())
+        .filter(Boolean),
+    ),
   // Supabase Postgres. DATABASE_URL: transaction pooler (6543) used by the app.
   // DATABASE_MIGRATION_URL: session pooler (5432), used by drizzle-kit and the job queue (pg-boss),
   // both of which need a real session and not the transaction pooler.
