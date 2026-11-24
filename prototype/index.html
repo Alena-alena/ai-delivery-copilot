@@ -15,8 +15,13 @@
   <div class="seg" data-ctl="state"><button data-v="full">Full</button><button data-v="loading">Loading</button><button data-v="empty">Empty</button><button data-v="error">Error</button></div>
   <span class="lbl">Analysis</span>
   <div class="seg" data-ctl="run"><button data-v="none">Not run</button><button data-v="running">Running</button><button data-v="failed">Failed</button><button data-v="done">Done</button></div>
+  <span class="lbl">Tasks</span>
+  <div class="seg" data-ctl="tasks"><button data-v="none">Not generated</button><button data-v="generating">Generating</button><button data-v="review">Review</button><button data-v="sending">Sending</button><button data-v="result">Sent, 1 failed</button></div>
+  <span class="lbl">Linear</span>
+  <div class="seg" data-ctl="linear"><button data-v="ok">Connected</button><button data-v="none">No key</button><button data-v="bad">Bad key</button></div>
 </div>
 <script src="analysis.js"></script><!-- feature code first: it only defines things; prototype.js renders -->
+<script src="tasks.js"></script>
 <script src="prototype.js"></script>
 </body>
 </html>

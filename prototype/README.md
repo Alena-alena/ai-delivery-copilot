@@ -13,10 +13,13 @@ python3 -m http.server 5180 --directory prototype
 ```
 
 Open http://localhost:5180. The bar at the bottom switches **theme** (light/dark), **state** (full, loading, empty,
-error) and the **analysis** stage (not run, running, failed, done). `?theme=dark&state=empty#projects` opens a screen
-directly; `?tab=analysis&run=done#project` opens the analysis results.
+error) the **analysis** stage (not run, running, failed, done), the **tasks** stage (not generated, generating, review,
+sending, sent with one failure) and the **Linear** connection (connected, no key, bad key). `?theme=dark&state=empty#projects` opens a screen
+directly; `?tab=analysis&run=done#project` opens the analysis results; `?tab=tasks&tasks=result#project` opens the send
+result, `?tab=settings&linear=bad#project` the Linear settings with a rejected key.
 
-Files: `prototype.js` (shell, projects, documents, dialogs), `analysis.js` (the Analysis tab), `tokens.css`, `prototype.css`.
+Files: `prototype.js` (shell, projects, documents, dialogs), `analysis.js` (the Analysis tab), `tasks.js` (the Tasks
+tab and the Linear settings), `tokens.css`, `prototype.css`.
 A feature with its own code goes in its own file, loaded before `prototype.js`.
 
 ## How to add a feature
