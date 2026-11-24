@@ -1,3 +1,4 @@
+import type { AnalysisStep } from '@copilot/contracts';
 import { HttpException, Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
@@ -9,6 +10,7 @@ import {
   analysisRuns,
   documentSegments,
   documents,
+  gaps,
   requirementSources,
   requirements,
 } from '../db/schema.js';
@@ -35,6 +37,19 @@ export interface RequirementsResponse {
   prompt_version: string;
 }
 
+/** The Python service's answer for POST /v1/analysis/gaps. */
+export interface GapsResponse {
+  gaps: {
+    type: 'missing_information' | 'missing_requirement' | 'unclear_wording';
+    severity: 'high' | 'medium' | 'low';
+    text: string;
+    requirement_refs: string[];
+    question: string;
+  }[];
+  usage: RequirementsResponse['usage'];
+  prompt_version: string;
+}
+
 /** Titles are compared without case, punctuation and spacing, so "Online booking!" equals "online  booking". */
 export const titleKey = (title: string) =>
   title
@@ -54,6 +69,8 @@ export function failureCode(err: unknown): string {
         return 'ANALYSIS_BUSY';
       case 'LLM_INVALID_RESPONSE':
         return 'ANALYSIS_INVALID_RESPONSE';
+      case 'ANALYSIS_TOO_LARGE':
+        return 'ANALYSIS_TOO_LARGE';
     }
   }
   return 'ANALYSIS_FAILED';
@@ -75,7 +92,7 @@ export class AnalysisRunner {
     // queued -> running, atomically: a run that was cancelled while queued is not started.
     const [run] = await this.db
       .update(analysisRuns)
-      .set({ status: 'running' })
+      .set({ status: 'running', step: 'requirements' })
       .where(and(eq(analysisRuns.id, runId), eq(analysisRuns.status, 'queued')))
       .returning();
     if (!run) return; // cancelled, or already handled by another worker
@@ -84,13 +101,31 @@ export class AnalysisRunner {
       const docs = await this.loadDocuments(run.projectId);
       if (docs.length === 0)
         return await this.fail(runId, 'NO_DOCUMENTS_READY');
+      const timeout = this.config.get('AI_ANALYSIS_TIMEOUT_MS', {
+        infer: true,
+      });
       const result = await this.ai.post<RequirementsResponse>(
         '/v1/analysis/requirements',
         { documents: docs },
         requestId,
-        this.config.get('AI_ANALYSIS_TIMEOUT_MS', { infer: true }),
+        timeout,
       );
-      await this.save(run.projectId, runId, docs.length, result);
+      // Gaps are judged against the requirements just found. Nothing is saved until both steps have answered.
+      if (!(await this.setStep(runId, 'gaps'))) return; // cancelled meanwhile: do not spend on the next call
+      const gapsResult = await this.ai.post<GapsResponse>(
+        '/v1/analysis/gaps',
+        {
+          documents: docs,
+          requirements: result.requirements.map((r, i) => ({
+            ref: `R${i + 1}`,
+            title: r.title,
+            description: r.description,
+          })),
+        },
+        requestId,
+        timeout,
+      );
+      await this.save(run.projectId, runId, docs.length, result, gapsResult);
     } catch (err) {
       const code = failureCode(err);
       this.logger.warn(`Analysis ${runId} failed: ${code} (${String(err)})`);
@@ -134,11 +169,28 @@ export class AnalysisRunner {
   private async fail(runId: string, code: string): Promise<void> {
     await this.db
       .update(analysisRuns)
-      .set({ status: 'failed', errorCode: code, finishedAt: sql`now()` })
+      .set({
+        status: 'failed',
+        step: null,
+        errorCode: code,
+        finishedAt: sql`now()`,
+      })
       // only a run that is still running: a cancel that arrived meanwhile stays cancelled
       .where(
         and(eq(analysisRuns.id, runId), eq(analysisRuns.status, 'running')),
       );
+  }
+
+  /** Moves a running run to its next step. False when the run is no longer running (it was cancelled). */
+  private async setStep(runId: string, step: AnalysisStep): Promise<boolean> {
+    const rows = await this.db
+      .update(analysisRuns)
+      .set({ step })
+      .where(
+        and(eq(analysisRuns.id, runId), eq(analysisRuns.status, 'running')),
+      )
+      .returning({ id: analysisRuns.id });
+    return rows.length > 0;
   }
 
   /**
@@ -151,6 +203,7 @@ export class AnalysisRunner {
     runId: string,
     documentCount: number,
     result: RequirementsResponse,
+    gapsResult: GapsResponse,
   ): Promise<void> {
     // Pages of the cited segments, read once and before the lock is taken.
     const segmentIds = [
@@ -198,10 +251,14 @@ export class AnalysisRunner {
           ),
         );
       const kept = await tx
-        .select({ title: requirements.title })
+        .select({ title: requirements.title, number: requirements.number })
         .from(requirements)
         .where(eq(requirements.projectId, projectId));
       const seen = new Set(kept.map((k) => titleKey(k.title)));
+      // REQ number by title, so a gap can point at a requirement that was kept as well as at a new one
+      const numberByTitle = new Map(
+        kept.map((k) => [titleKey(k.title), k.number]),
+      );
       let next = (max?.n ?? 0) + 1;
 
       const fresh: {
@@ -214,6 +271,8 @@ export class AnalysisRunner {
         seen.add(key);
         fresh.push({ r, number: next++ });
       }
+      for (const { r, number } of fresh)
+        numberByTitle.set(titleKey(r.title), number);
       const inserted = fresh.length;
       if (inserted > 0) {
         const rows = await tx
@@ -247,20 +306,83 @@ export class AnalysisRunner {
           await tx.insert(requirementSources).values(sources);
       }
 
+      const gapsInserted = await this.saveGaps(
+        tx,
+        projectId,
+        runId,
+        gapsResult,
+        result.requirements.map((r) => numberByTitle.get(titleKey(r.title))),
+      );
+
       await tx
         .update(analysisRuns)
         .set({
           status: 'succeeded',
-          promptVersion: result.prompt_version,
+          step: null,
+          promptVersion: `${result.prompt_version} + ${gapsResult.prompt_version}`,
           model: result.usage.model,
-          promptTokens: result.usage.prompt_tokens,
-          completionTokens: result.usage.completion_tokens,
-          costUsd: result.usage.cost_usd,
+          promptTokens:
+            result.usage.prompt_tokens + gapsResult.usage.prompt_tokens,
+          completionTokens:
+            result.usage.completion_tokens + gapsResult.usage.completion_tokens,
+          costUsd: result.usage.cost_usd + gapsResult.usage.cost_usd,
           requirementsFound: inserted,
+          gapsFound: gapsInserted,
           documentCount,
           finishedAt: sql`now()`,
         })
         .where(eq(analysisRuns.id, runId));
     });
+  }
+  /**
+   * Same rule as for requirements: gaps a person closed (resolved, dismissed) are kept with their note, open ones are
+   * replaced, a repeat of a kept gap is not added again, and G numbers are never reused. Runs inside the save
+   * transaction, under the project's lock. `numberByRef[i]` is the REQ number of the requirement sent as `R{i+1}`.
+   */
+  private async saveGaps(
+    tx: Parameters<Parameters<Database['transaction']>[0]>[0],
+    projectId: string,
+    runId: string,
+    result: GapsResponse,
+    numberByRef: (number | undefined)[],
+  ): Promise<number> {
+    const [max] = await tx
+      .select({ n: sql<number>`coalesce(max(${gaps.number}), 0)::int` })
+      .from(gaps)
+      .where(eq(gaps.projectId, projectId));
+    await tx
+      .delete(gaps)
+      .where(and(eq(gaps.projectId, projectId), eq(gaps.status, 'open')));
+    const kept = await tx
+      .select({ text: gaps.text })
+      .from(gaps)
+      .where(eq(gaps.projectId, projectId));
+    const seen = new Set(kept.map((k) => titleKey(k.text)));
+    let next = (max?.n ?? 0) + 1;
+    const rows: (typeof gaps.$inferInsert)[] = [];
+    for (const g of result.gaps) {
+      const key = titleKey(g.text);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const requirementNumbers = [
+        ...new Set(
+          g.requirement_refs
+            .map((ref) => numberByRef[Number(ref.slice(1)) - 1])
+            .filter((n): n is number => n !== undefined),
+        ),
+      ];
+      rows.push({
+        projectId,
+        runId,
+        number: next++,
+        type: g.type,
+        severity: g.severity,
+        text: g.text,
+        question: g.question,
+        requirementNumbers,
+      });
+    }
+    if (rows.length > 0) await tx.insert(gaps).values(rows);
+    return rows.length;
   }
 }

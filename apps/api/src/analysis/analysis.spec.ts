@@ -23,6 +23,7 @@ import {
   AnalysisRunner,
   failureCode,
   titleKey,
+  type GapsResponse,
   type RequirementsResponse,
 } from './analysis-runner.service.js';
 import { AnalysisController } from './analysis.controller.js';
@@ -31,6 +32,7 @@ import { AnalysisService } from './analysis.service.js';
 let ctx: Awaited<ReturnType<typeof createTestApp>>;
 let runner: AnalysisRunner;
 const post = vi.fn();
+const postGaps = vi.fn();
 const enqueueRun = vi.fn<(id: string) => Promise<void>>();
 const alice = as('token-alice');
 const bob = as('token-bob');
@@ -42,7 +44,16 @@ beforeAll(async () => {
       AnalysisService,
       AnalysisRunner,
       { provide: AnalysisJobs, useValue: { enqueueRun } },
-      { provide: AiClient, useValue: { post } },
+      {
+        provide: AiClient,
+        // /gaps has its own mock, so the existing tests keep using `post` for the requirements call only
+        useValue: {
+          post: (path: string, ...rest: unknown[]) =>
+            path.endsWith('/gaps')
+              ? postGaps(path, ...rest)
+              : post(path, ...rest),
+        },
+      },
       {
         provide: ConfigService,
         useValue: {
@@ -61,6 +72,7 @@ beforeAll(async () => {
 afterAll(() => ctx.close());
 beforeEach(() => {
   post.mockReset();
+  postGaps.mockReset().mockResolvedValue(gapsAnswer([]));
   enqueueRun.mockReset().mockResolvedValue(undefined);
 });
 
@@ -138,6 +150,39 @@ const aiAnswer = (
   },
   prompt_version: 'requirements/v1',
 });
+
+const gapOut = (
+  text: string,
+  over: Partial<GapsResponse['gaps'][number]> = {},
+): GapsResponse['gaps'][number] => ({
+  type: 'missing_information',
+  severity: 'high',
+  text,
+  requirement_refs: [],
+  question: `Question about: ${text}`,
+  ...over,
+});
+const gapsAnswer = (items: GapsResponse['gaps']): GapsResponse => ({
+  gaps: items,
+  usage: {
+    calls: 1,
+    prompt_tokens: 100,
+    completion_tokens: 20,
+    cost_usd: 0.001,
+    model: 'default-llm',
+  },
+  prompt_version: 'gaps/v1',
+});
+const listGaps = async (projectId: string) =>
+  (await ctx.http().get(`/api/projects/${projectId}/gaps`).set(alice))
+    .body as Array<{
+    id: string;
+    number: number;
+    text: string;
+    status: string;
+    note: string;
+    requirementNumbers: number[];
+  }>;
 
 /** Starts a run through the API and executes it like the worker would. */
 async function runOnce(projectId: string) {
@@ -346,10 +391,10 @@ describe('executing a run', () => {
     expect(run).toMatchObject({
       status: 'succeeded',
       requirementsFound: 2,
-      promptVersion: 'requirements/v1',
-      promptTokens: 1000,
-      completionTokens: 200,
-      costUsd: 0.0123,
+      promptVersion: 'requirements/v1 + gaps/v1',
+      promptTokens: 1100,
+      completionTokens: 220,
+      costUsd: 0.0133,
       model: 'default-llm',
     });
     expect(run!.finishedAt).not.toBeNull();
@@ -578,5 +623,195 @@ describe('titleKey', () => {
   it('ignores case, punctuation and spacing, and keeps non-latin letters', () => {
     expect(titleKey('Online  booking!')).toBe(titleKey('online booking'));
     expect(titleKey('Бронирование онлайн')).not.toBe('');
+  });
+});
+
+describe('gaps', () => {
+  it('runs the gaps step after the requirements, sends them as refs, and saves gaps linked to REQ numbers', async () => {
+    const pid = await project();
+    const d = await doc(pid, 'spec.pdf', ['a', 'b']);
+    post.mockResolvedValue(
+      aiAnswer([
+        reqOut('Online booking', d.id, d.segs[0]!.id),
+        reqOut('EU storage', d.id, d.segs[1]!.id),
+      ]),
+    );
+    postGaps.mockResolvedValue(
+      gapsAnswer([
+        gapOut('No cancellation deadline', { requirement_refs: ['R1'] }),
+        gapOut('Roles are absent', { type: 'missing_requirement' }),
+        gapOut('Points at nothing real', { requirement_refs: ['R9'] }),
+      ]),
+    );
+    const runId = await runOnce(pid);
+
+    const sent = postGaps.mock.calls[0]!;
+    expect(sent[0]).toBe('/v1/analysis/gaps');
+    expect(sent[1].requirements).toEqual([
+      expect.objectContaining({ ref: 'R1', title: 'Online booking' }),
+      expect.objectContaining({ ref: 'R2', title: 'EU storage' }),
+    ]);
+    expect(sent[1].documents[0].id).toBe(d.id);
+
+    const list = await listGaps(pid);
+    expect(list.map((g) => [g.number, g.text, g.requirementNumbers])).toEqual([
+      [1, 'No cancellation deadline', [1]],
+      [2, 'Roles are absent', []],
+      [3, 'Points at nothing real', []],
+    ]);
+    const [run] = await ctx.db
+      .select()
+      .from(analysisRuns)
+      .where(eq(analysisRuns.id, runId));
+    expect(run).toMatchObject({
+      status: 'succeeded',
+      gapsFound: 3,
+      step: null,
+    });
+  });
+
+  it('saves nothing when the gaps step fails, and says which step failed to answer', async () => {
+    const pid = await project();
+    const d = await doc(pid, 'spec.pdf', ['a']);
+    post.mockResolvedValue(
+      aiAnswer([reqOut('Online booking', d.id, d.segs[0]!.id)]),
+    );
+    postGaps.mockRejectedValue(
+      new HttpException({ code: 'ANALYSIS_TOO_LARGE' }, 413),
+    );
+    const runId = await runOnce(pid);
+    const [run] = await ctx.db
+      .select()
+      .from(analysisRuns)
+      .where(eq(analysisRuns.id, runId));
+    expect(run).toMatchObject({
+      status: 'failed',
+      errorCode: 'ANALYSIS_TOO_LARGE',
+      step: null,
+    });
+    expect(await listReqs(pid)).toEqual([]);
+    expect(await listGaps(pid)).toEqual([]);
+  });
+
+  it('does not call the gaps step for a run cancelled during the requirements step', async () => {
+    const pid = await project();
+    const d = await doc(pid, 'spec.pdf', ['a']);
+    let finishAi!: (v: RequirementsResponse) => void;
+    post.mockReturnValue(
+      new Promise<RequirementsResponse>((r) => (finishAi = r)),
+    );
+    const started = await ctx
+      .http()
+      .post(`/api/projects/${pid}/analysis`)
+      .set(alice);
+    const running = runner.execute(started.body.id, 'job-1');
+    await vi.waitFor(() => expect(post).toHaveBeenCalled());
+    await ctx
+      .http()
+      .post(`/api/projects/${pid}/analysis/cancel`)
+      .set(alice)
+      .expect(200);
+    finishAi(aiAnswer([reqOut('Late', d.id, d.segs[0]!.id)]));
+    await running;
+    expect(postGaps).not.toHaveBeenCalled();
+    expect(await listGaps(pid)).toEqual([]);
+  });
+
+  it('re-run keeps resolved and dismissed gaps with their notes, replaces open ones, never reuses numbers', async () => {
+    const pid = await project();
+    const d = await doc(pid, 'spec.pdf', ['a']);
+    post.mockResolvedValue(
+      aiAnswer([reqOut('Online booking', d.id, d.segs[0]!.id)]),
+    );
+    postGaps.mockResolvedValue(
+      gapsAnswer([
+        gapOut('Deadline missing'),
+        gapOut('Roles absent'),
+        gapOut('Backups absent'),
+      ]),
+    );
+    await runOnce(pid);
+    const [g1, g2] = await listGaps(pid);
+    const resolved = await ctx
+      .http()
+      .patch(`/api/projects/${pid}/gaps/${g1!.id}`)
+      .set(alice)
+      .send({ status: 'resolved', note: 'Clarified: 24 hours' });
+    expect(resolved.body).toMatchObject({
+      status: 'resolved',
+      note: 'Clarified: 24 hours',
+    });
+    await ctx
+      .http()
+      .patch(`/api/projects/${pid}/gaps/${g2!.id}`)
+      .set(alice)
+      .send({ status: 'dismissed', note: 'Out of scope' })
+      .expect(200);
+
+    postGaps.mockResolvedValue(
+      gapsAnswer([
+        gapOut('deadline  missing!'),
+        gapOut('Backups absent'),
+        gapOut('Brand new gap'),
+      ]),
+    );
+    await runOnce(pid);
+    const after = await listGaps(pid);
+    expect(after.map((g) => [g.number, g.text, g.status, g.note])).toEqual([
+      [1, 'Deadline missing', 'resolved', 'Clarified: 24 hours'],
+      [2, 'Roles absent', 'dismissed', 'Out of scope'],
+      [4, 'Backups absent', 'open', ''],
+      [5, 'Brand new gap', 'open', ''],
+    ]);
+  });
+
+  it('reopening a gap clears its note; only members of the project can read or change gaps', async () => {
+    const pid = await project();
+    const d = await doc(pid, 'spec.pdf', ['a']);
+    post.mockResolvedValue(
+      aiAnswer([reqOut('Online booking', d.id, d.segs[0]!.id)]),
+    );
+    postGaps.mockResolvedValue(gapsAnswer([gapOut('Deadline missing')]));
+    await runOnce(pid);
+    const [g] = await listGaps(pid);
+    await ctx
+      .http()
+      .patch(`/api/projects/${pid}/gaps/${g!.id}`)
+      .set(alice)
+      .send({ status: 'dismissed', note: 'x' });
+    const reopened = await ctx
+      .http()
+      .patch(`/api/projects/${pid}/gaps/${g!.id}`)
+      .set(alice)
+      .send({ status: 'open', note: 'ignored' });
+    expect(reopened.body).toMatchObject({ status: 'open', note: '' });
+
+    expect(
+      (await ctx.http().get(`/api/projects/${pid}/gaps`).set(bob)).status,
+    ).toBe(404);
+    expect(
+      (
+        await ctx
+          .http()
+          .patch(`/api/projects/${pid}/gaps/${g!.id}`)
+          .set(bob)
+          .send({ status: 'resolved' })
+      ).status,
+    ).toBe(404);
+    expect(
+      (
+        await ctx
+          .http()
+          .patch(`/api/projects/${pid}/gaps/${g!.id}`)
+          .set(alice)
+          .send({ status: 'bogus' })
+      ).status,
+    ).toBe(400);
+  });
+
+  it('maps the too-large answer of the AI service to its own run error', () => {
+    expect(
+      failureCode(new HttpException({ code: 'ANALYSIS_TOO_LARGE' }, 413)),
+    ).toBe('ANALYSIS_TOO_LARGE');
   });
 });

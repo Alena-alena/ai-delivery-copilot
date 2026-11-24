@@ -77,3 +77,53 @@ class RequirementsOut(BaseModel):
     requirements: list[RequirementOut]
     usage: RunUsage
     prompt_version: str
+
+
+# ---- gaps: POST /v1/analysis/gaps ----
+
+GapType = Literal["missing_information", "missing_requirement", "unclear_wording"]
+Severity = Literal["high", "medium", "low"]
+
+
+class GapDraft(BaseModel):
+    """What the model must return for one gap (strict: every field, no extras)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    type: GapType
+    severity: Severity
+    text: str
+    # refs ("R1", "R2") of the requirements this gap is about; empty when the topic is absent from the documents
+    requirement_refs: list[str]
+    question: str
+
+
+class GapsOutput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    gaps: list[GapDraft]
+
+
+class RequirementRef(BaseModel):
+    ref: str = Field(min_length=1, max_length=16)
+    title: str = Field(max_length=300)
+    description: str = Field(default="", max_length=4000)
+
+
+class GapsIn(BaseModel):
+    documents: list[DocumentIn] = Field(min_length=1, max_length=100)
+    requirements: list[RequirementRef] = Field(max_length=500)
+
+
+class GapOut(BaseModel):
+    type: GapType
+    severity: Severity
+    text: str
+    requirement_refs: list[str]
+    question: str
+
+
+class GapsOut(BaseModel):
+    gaps: list[GapOut]
+    usage: RunUsage
+    prompt_version: str

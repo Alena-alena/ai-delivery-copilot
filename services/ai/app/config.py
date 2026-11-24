@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     litellm_virtual_key: SecretStr = Field(min_length=1)  # fail at startup, not at first call
     llm_model_alias: str = "default-llm"
     # Must exceed LiteLLM's total budget: (num_retries + 1) x per-attempt timeout (infra/litellm/config.yaml)
-    llm_timeout_s: float = 70.0
+    llm_timeout_s: float = 190.0
     enable_dev_endpoints: bool = False
     log_level: str = "INFO"
     environment: str = "development"

@@ -21,7 +21,7 @@
 
 - Run as proxy in Docker (`infra/docker-compose.yml`) with its own Postgres for spend logs.
 - Image pinned by digest via `LITELLM_VERSION` (`main-stable@sha256:…`, LiteLLM 1.109.1).
-- Alias `default-llm` → `openai/gpt-5.6-luna`; retries 2, timeout 60 s.
+- Alias `default-llm` → `openai/gpt-5.6-luna`; retries 1, timeout 90 s (was 60 s; raised in phase 4, see `infra/litellm/config.yaml`).
 - AI service uses a virtual key (`LITELLM_VIRTUAL_KEY`), budget 5 USD / 30 days; master key stays out of app code.
 - UI/API bound to 127.0.0.1:4000. Apps run locally; Docker only for infrastructure. `pnpm dev` starts everything.
 
