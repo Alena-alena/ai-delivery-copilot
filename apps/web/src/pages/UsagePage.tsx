@@ -12,6 +12,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { formatCost, useUsage } from '@/lib/usage';
+import { formatDateTime } from '@/lib/format';
 
 const RANGE_LABEL: Record<UsageRange, string> = {
   '30d': '30 days',
@@ -209,10 +210,7 @@ export default function UsagePage() {
                 {calls.map((c) => (
                   <TableRow key={c.id}>
                     <TableCell className="text-muted-foreground">
-                      {new Date(c.time).toLocaleString([], {
-                        dateStyle: 'short',
-                        timeStyle: 'short',
-                      })}
+                      {formatDateTime(c.time)}
                     </TableCell>
                     <TableCell className="font-semibold">{c.operation ?? '—'}</TableCell>
                     <TableCell className="hidden text-muted-foreground md:table-cell">

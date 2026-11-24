@@ -44,6 +44,7 @@ import {
   useStartAnalysis,
 } from '@/lib/analysis';
 import { formatCost } from '@/lib/usage';
+import { formatDateTime } from '@/lib/format';
 
 type Filter = 'all' | RequirementStatus;
 
@@ -449,12 +450,7 @@ function Results({
             {run?.status === 'succeeded' && (
               <span className="text-muted-foreground">
                 {' '}
-                · last run{' '}
-                {new Date(run.createdAt).toLocaleString([], {
-                  dateStyle: 'short',
-                  timeStyle: 'short',
-                })}{' '}
-                · cost {formatCost(run.costUsd)}
+                · last run {formatDateTime(run.createdAt)} · cost {formatCost(run.costUsd)}
               </span>
             )}
           </span>

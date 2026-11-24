@@ -3,8 +3,9 @@ import json
 import pytest
 from fastapi.testclient import TestClient
 
+from app.analysis.gaps import GapsInputTooLarge, find_gaps
 from app.analysis.requirements import chunk_documents, extract_requirements, render_documents
-from app.analysis.schemas import DocumentIn, SegmentIn
+from app.analysis.schemas import DocumentIn, RequirementRef, SegmentIn
 from app.analysis.verify import quote_in_text
 from app.llm.client import Completion, Usage
 from app.llm.errors import LLMInvalidResponse
@@ -268,8 +269,6 @@ def test_a_group_never_exceeds_the_budget_even_when_earlier_documents_filled_it(
 
 # ---- gaps ----
 
-from app.analysis.gaps import GapsInputTooLarge, find_gaps
-from app.analysis.schemas import RequirementRef
 
 REQ_REFS = [RequirementRef(ref="R1", title="Online booking", description="Patients manage appointments.")]
 
