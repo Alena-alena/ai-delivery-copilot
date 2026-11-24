@@ -1,5 +1,5 @@
 * { box-sizing: border-box; }
-body { margin: 0; background: var(--bg); color: var(--ink); font: var(--fs)/1.5 var(--font-ui); padding-bottom: 64px; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: var(--fs)/1.5 var(--font-ui); padding-bottom: var(--dev-h, 64px); }
 h1, h2 { font-family: var(--font-head); font-weight: var(--head-weight); margin: 0; letter-spacing: -0.01em; }
 h1 { font-size: var(--fs-h1); }
 a { color: inherit; text-decoration: none; }
@@ -100,7 +100,7 @@ td.fail { height: auto; padding-block: 9px; }
 .seg-card { border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; }
 .seg-card .m { color: var(--ink-3); font-size: var(--fs-sm); margin-bottom: 4px; }
 .seg-card p { margin: 0; white-space: pre-wrap; }
-.toasts { position: fixed; right: 16px; bottom: 72px; z-index: 40; display: flex; flex-direction: column; gap: 8px; }
+.toasts { position: fixed; right: 16px; bottom: var(--dev-h, 72px); z-index: 40; display: flex; flex-direction: column; gap: 8px; }
 .toast { background: var(--ink); color: var(--bg); padding: 10px 14px; border-radius: var(--radius); box-shadow: 0 6px 20px rgba(0,0,0,.25); font-weight: 600; animation: fade .15s; }
 .pcard .row { display: flex; gap: 6px; margin-top: 8px; }
 .pcard { position: relative; }
@@ -147,3 +147,17 @@ td input[type=checkbox] { accent-color: var(--accent); width: 15px; height: 15px
 .sheet .scroll { overflow-y: auto; flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .sheet .foot { display: flex; gap: 8px; }
 .sel { height: 36px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: var(--radius); padding: 0 8px; font: inherit; }
+
+/* tasks tab and settings */
+tr.off td { opacity: .6; }
+.grp .chip.link { margin-left: 0; }
+.readybar { position: sticky; bottom: var(--dev-h, 76px); display: flex; gap: 12px; align-items: center; flex-wrap: wrap; padding: 10px var(--pad); margin-top: 14px; border-color: var(--accent); }
+.aclist { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; }
+.acrow { display: flex; gap: 6px; align-items: center; }
+.acrow input { flex: 1; height: 32px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: var(--radius); padding: 0 10px; font: inherit; }
+.ta { min-height: 80px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: var(--radius); padding: 8px 10px; font: inherit; resize: vertical; }
+.check { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.check input, .sheet input[type=checkbox] { accent-color: var(--accent); }
+.btn:disabled, .sel:disabled, .check input:disabled { opacity: .5; cursor: not-allowed; }
+@media (max-width: 700px) { .hide-sm { display: none; } }
+.seg2 { max-width: 100%; overflow-x: auto; } .seg2 button { white-space: nowrap; flex-shrink: 0; }

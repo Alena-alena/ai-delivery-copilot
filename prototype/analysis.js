@@ -7,13 +7,13 @@ const DOC3 = '03_client_email_ru_cp1251.txt';
 
 // status: ai = AI suggestion, confirmed, needs = needs clarification, rejected
 const REQS = [
-  { id: 'REQ-001', title: 'Patients can book, move and cancel appointments online', type: 'Functional', priority: 'High', status: 'ai', conf: 'High', doc: DOC1, page: 1,
+  { id: 'REQ-001', title: 'Patients can book, move and cancel appointments online', type: 'Functional', priority: 'High', status: 'confirmed', conf: 'High', doc: DOC1, page: 1,
     desc: 'A patient can create, reschedule and cancel an appointment from the web app without calling the clinic.',
     quote: 'Patients must be able to book, move and cancel appointments online.', ai: 'Clear and testable. The cancellation deadline is not stated (see gap G-1).' },
   { id: 'REQ-002', title: 'Send a reminder 24 hours before the appointment', type: 'Functional', priority: 'High', status: 'confirmed', conf: 'High', doc: DOC1, page: 1,
     desc: 'The system sends a reminder by SMS and email 24 hours before each appointment.',
     quote: 'The system must send a reminder 24 hours before the appointment by SMS and email.', ai: 'Explicit in the spec.' },
-  { id: 'REQ-003', title: 'Staff can block time slots', type: 'Functional', priority: 'Medium', status: 'ai', conf: 'High', doc: DOC1, page: 2,
+  { id: 'REQ-003', title: 'Staff can block time slots', type: 'Functional', priority: 'Medium', status: 'confirmed', conf: 'High', doc: DOC1, page: 2,
     desc: 'Clinic staff can block slots for holidays and equipment maintenance so patients cannot book them.',
     quote: 'Clinic staff can block time slots for holidays and equipment maintenance.', ai: 'Does not say whether existing bookings in a blocked slot are cancelled.' },
   { id: 'REQ-004', title: 'Patient data is stored in the EU', type: 'Constraint', priority: 'Urgent', status: 'needs', conf: 'Medium', doc: DOC1, page: 2,

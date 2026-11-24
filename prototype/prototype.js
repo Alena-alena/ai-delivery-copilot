@@ -11,8 +11,10 @@ const ALLOWED = {
   state: ['full', 'loading', 'empty', 'error'],
   run: ['none', 'running', 'failed', 'done'],
   tab: ['documents', 'analysis', 'tasks', 'settings'],
+  tasks: ['none', 'generating', 'review', 'sending', 'result'],
+  linear: ['ok', 'none', 'bad'],
 };
-const DEFAULTS = { theme: 'light', state: 'full', run: 'done', tab: 'documents' };
+const DEFAULTS = { theme: 'light', state: 'full', run: 'done', tab: 'documents', tasks: 'review', linear: 'ok' };
 for (const k of Object.keys(ALLOWED)) {
   if (ALLOWED[k].includes(q.get(k))) S[k] = q.get(k);
   if (!ALLOWED[k].includes(S[k])) S[k] = DEFAULTS[k]; // also covers a bad value saved in localStorage
@@ -131,7 +133,9 @@ function project() {
       ? `<div class="drop"><b>Drop PDF, DOCX or TXT files here</b>Up to 10 MB each. Text is extracted automatically. <button class="btn sm" style="margin-left:6px">Choose files</button></div>${documents()}`
       : S.tab === 'analysis'
         ? analysisTab()
-        : `<div class="card empty"><b>${esc(S.tab[0].toUpperCase() + S.tab.slice(1))}</b>Designed in a later session of this phase.</div>`
+        : S.tab === 'tasks'
+          ? tasksTab()
+          : settingsTab()
   }`;
   return shell(inner, 'projects');
 }
@@ -207,6 +211,8 @@ function render() {
         .forEach((b) => b.classList.toggle('on', S[g.dataset.ctl] === b.dataset.v)),
     );
   paintDialog();
+  // the dev bar is not part of the design: keep sticky bars and the page end clear of it
+  document.documentElement.style.setProperty('--dev-h', $('.devbar').offsetHeight + 24 + 'px');
   try {
     localStorage.setItem('proto', JSON.stringify({ theme: S.theme, state: S.state }));
   } catch (e) {}
