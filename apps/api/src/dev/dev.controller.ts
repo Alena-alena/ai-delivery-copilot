@@ -13,9 +13,9 @@ import { getRequestId } from '../common/request-id.js';
 import { DevOnlyGuard } from './dev-only.guard.js';
 import { Public } from '../auth/public.decorator.js';
 
-// Timeout budget: LiteLLM 60 s (infra/litellm/config.yaml) < Python 70 s < this 80 s,
+// Timeout budget: LiteLLM 90 s x 2 tries = 180 s (infra/litellm/config.yaml) < Python 190 s < this 200 s,
 // so the innermost layer's typed error always wins and nobody keeps billing after we give up.
-export const LLM_TIMEOUT_MS = 80_000;
+export const LLM_TIMEOUT_MS = 200_000;
 
 const llmPingSchema = z.object({
   prompt: z.string().min(1).max(4000),

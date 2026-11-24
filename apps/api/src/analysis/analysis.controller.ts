@@ -10,8 +10,10 @@ import {
 } from '@nestjs/common';
 import {
   confirmRequirementsSchema,
+  updateGapSchema,
   updateRequirementSchema,
   type ConfirmRequirementsInput,
+  type UpdateGapInput,
   type UpdateRequirementInput,
 } from '@copilot/contracts';
 import type { AuthUser } from '../auth/auth.types.js';
@@ -80,5 +82,23 @@ export class AnalysisController {
     body: UpdateRequirementInput,
   ) {
     return this.analysis.update(user.id, projectId, requirementId, body);
+  }
+
+  @Get('gaps')
+  listGaps(
+    @CurrentUser() user: AuthUser,
+    @Param('projectId', uuidParam) projectId: string,
+  ) {
+    return this.analysis.listGaps(user.id, projectId);
+  }
+
+  @Patch('gaps/:gapId')
+  updateGap(
+    @CurrentUser() user: AuthUser,
+    @Param('projectId', uuidParam) projectId: string,
+    @Param('gapId', uuidParam) gapId: string,
+    @Body(new ZodValidationPipe(updateGapSchema)) body: UpdateGapInput,
+  ) {
+    return this.analysis.updateGap(user.id, projectId, gapId, body);
   }
 }

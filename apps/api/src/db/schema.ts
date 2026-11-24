@@ -167,6 +167,9 @@ export const analysisRuns = pgTable(
     completionTokens: integer('completion_tokens').notNull().default(0),
     costUsd: doublePrecision('cost_usd').notNull().default(0),
     requirementsFound: integer('requirements_found').notNull().default(0),
+    gapsFound: integer('gaps_found').notNull().default(0),
+    /** Which step a queued or running run is on (requirements, gaps); shown in the progress list. */
+    step: text('step').$type<'requirements' | 'gaps'>(),
     documentCount: integer('document_count').notNull().default(0),
     errorCode: text('error_code'),
     startedBy: uuid('started_by').references(() => profiles.id, {
@@ -255,4 +258,52 @@ export const requirementSources = pgTable(
     quote: text('quote').notNull(),
   },
   (t) => [index('requirement_sources_requirement_id_idx').on(t.requirementId)],
+).enableRLS();
+
+export const gapType = pgEnum('gap_type', [
+  'missing_information',
+  'missing_requirement',
+  'unclear_wording',
+]);
+export const gapSeverity = pgEnum('gap_severity', ['high', 'medium', 'low']);
+export const findingStatus = pgEnum('finding_status', [
+  'open',
+  'resolved',
+  'dismissed',
+]);
+
+/**
+ * Something the documents do not say, or say too vaguely to build from. `number` is G-001 per project and is never
+ * reused. A re-run replaces only gaps that are still open; resolved and dismissed ones (with their note) are kept.
+ * `requirementNumbers` are REQ numbers, not foreign keys: an untouched requirement is replaced on a re-run, its
+ * number is not, so the link stays readable and a replaced requirement simply drops out of the chips.
+ */
+export const gaps = pgTable(
+  'gaps',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    projectId: uuid('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    runId: uuid('run_id').references(() => analysisRuns.id, {
+      onDelete: 'set null',
+    }),
+    number: integer('number').notNull(),
+    type: gapType('type').notNull(),
+    severity: gapSeverity('severity').notNull(),
+    text: text('text').notNull(),
+    question: text('question').notNull(),
+    requirementNumbers: integer('requirement_numbers')
+      .array()
+      .notNull()
+      .default(sql`'{}'::integer[]`),
+    status: findingStatus('status').notNull().default('open'),
+    note: text('note').notNull().default(''),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    uniqueIndex('gaps_project_number_uq').on(t.projectId, t.number),
+    index('gaps_project_status_idx').on(t.projectId, t.status),
+  ],
 ).enableRLS();

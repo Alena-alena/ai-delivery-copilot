@@ -17,6 +17,8 @@ const run = (status: AnalysisRun['status']): AnalysisRun => ({
   completionTokens: 0,
   costUsd: 0,
   requirementsFound: 0,
+  gapsFound: 0,
+  step: null,
   documentCount: 1,
   errorCode: null,
   createdAt: '2026-11-18T10:00:00.000Z',

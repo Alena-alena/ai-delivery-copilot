@@ -80,7 +80,12 @@ class LLMClient:
             raise LLMTimeout("LLM call timed out") from e
         except openai.RateLimitError as e:
             raise LLMRateLimited("LLM provider rate limit reached") from e
-        except (openai.APIConnectionError, openai.APIStatusError) as e:
+        except openai.APIStatusError as e:
+            # LiteLLM reports its own upstream timeout as 408 (or 504 from a gateway): that is a timeout too
+            if e.status_code in (408, 504):
+                raise LLMTimeout("LLM call timed out") from e
+            raise LLMProviderError(f"LLM provider error: {type(e).__name__}") from e
+        except openai.APIConnectionError as e:
             raise LLMProviderError(f"LLM provider error: {type(e).__name__}") from e
         latency_ms = (time.perf_counter() - started) * 1000
 

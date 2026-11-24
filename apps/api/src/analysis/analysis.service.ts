@@ -13,7 +13,9 @@ import {
   type AnalysisRun,
   type AnalysisErrorCode,
   type ConfirmRequirementsInput,
+  type Gap,
   type Requirement,
+  type UpdateGapInput,
   type UpdateRequirementInput,
 } from '@copilot/contracts';
 import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
@@ -23,6 +25,7 @@ import type { Database } from '../db/db.js';
 import {
   analysisRuns,
   documents,
+  gaps,
   requirementSources,
   requirements,
 } from '../db/schema.js';
@@ -34,6 +37,24 @@ export const STALE_RUN_MINUTES = 30;
 
 type RunRow = typeof analysisRuns.$inferSelect;
 type RequirementRow = typeof requirements.$inferSelect;
+type GapRow = typeof gaps.$inferSelect;
+
+function toGap(r: GapRow): Gap {
+  return {
+    id: r.id,
+    projectId: r.projectId,
+    number: r.number,
+    type: r.type,
+    severity: r.severity,
+    text: r.text,
+    question: r.question,
+    requirementNumbers: r.requirementNumbers,
+    status: r.status,
+    note: r.note,
+    createdAt: r.createdAt.toISOString(),
+    updatedAt: r.updatedAt.toISOString(),
+  };
+}
 
 function reject(code: AnalysisErrorCode, status: number): never {
   throw new HttpException(
@@ -53,6 +74,8 @@ export function toRun(row: RunRow): AnalysisRun {
     completionTokens: row.completionTokens,
     costUsd: row.costUsd,
     requirementsFound: row.requirementsFound,
+    gapsFound: row.gapsFound,
+    step: row.step,
     documentCount: row.documentCount,
     errorCode: row.errorCode,
     createdAt: row.createdAt.toISOString(),
@@ -259,6 +282,36 @@ export class AnalysisService {
       )
       .returning();
     return this.withSources(rows);
+  }
+
+  async listGaps(userId: string, projectId: string): Promise<Gap[]> {
+    await this.access.requireProject(userId, projectId);
+    const rows = await this.db
+      .select()
+      .from(gaps)
+      .where(eq(gaps.projectId, projectId))
+      .orderBy(asc(gaps.number));
+    return rows.map(toGap);
+  }
+
+  /** Resolve, dismiss or reopen a gap. The note is the person's own: reopening clears it. */
+  async updateGap(
+    userId: string,
+    projectId: string,
+    gapId: string,
+    input: UpdateGapInput,
+  ): Promise<Gap> {
+    await this.access.requireProject(userId, projectId);
+    const [row] = await this.db
+      .update(gaps)
+      .set({
+        status: input.status,
+        note: input.status === 'open' ? '' : (input.note ?? ''),
+      })
+      .where(and(eq(gaps.id, gapId), eq(gaps.projectId, projectId)))
+      .returning();
+    if (!row) throw new NotFoundException('Gap not found');
+    return toGap(row);
   }
 
   private async withSources(rows: RequirementRow[]): Promise<Requirement[]> {

@@ -1,7 +1,7 @@
 # Analysis pipeline
 
-How a project's documents become requirements. Built so far: **requirements**. Gaps and contradictions come next
-and reuse the same pipeline.
+How a project's documents become requirements and gaps. Built so far: **requirements** and **gaps**. Contradictions come
+next and reuse the same pipeline.
 
 ```
 Browser ── POST /api/projects/:id/analysis ──▶ NestJS: creates analysis_runs row (queued), queues job `analysis.run`
@@ -12,7 +12,8 @@ pg-boss worker (in the API process) ───────────┘
     2. reads the project's extracted documents and their segments
     3. POST /v1/analysis/requirements  ──▶ FastAPI ──▶ LiteLLM ──▶ OpenAI
                                           (stateless: gets segments, returns validated requirements)
-    4. saves the result in one transaction (advisory lock per project), run → succeeded / failed
+    4. POST /v1/analysis/gaps          ──▶ same path; gets the segments AND the requirements just found
+    5. saves both results in one transaction (advisory lock per project), run → succeeded / failed
 ```
 
 ## Rules
@@ -28,6 +29,24 @@ pg-boss worker (in the API process) ───────────┘
   AI suggestions from earlier runs are replaced. A new finding with the same title as a kept one is not added again.
   `REQ-n` numbers are never reused, even when an untouched suggestion is replaced.
 - **Cancel.** The run becomes `cancelled`; a result that arrives afterwards is discarded.
+
+## Gaps
+
+A gap is something the documents do not say, or say too vaguely to build from. Three types: `missing_information` (a
+requirement lacks a detail), `missing_requirement` (a whole topic is absent, e.g. roles), `unclear_wording`. Each has a
+severity, a text and a ready **question for the client**.
+
+- The gaps call sees all documents and the requirements as `R1, R2…` refs (`prompts/gaps/v1.md`). The AI service drops
+  refs it was not given and repeated gaps. The API turns refs into REQ numbers after saving, so a gap can point at a kept
+  requirement as well as a new one. A gap with no refs is shown as "Absent from the documents".
+- A gap claims something is *missing*, so the documents are never split into groups: if they do not fit one call
+  (60,000 tokens) the run fails with `ANALYSIS_TOO_LARGE` rather than report something "absent" that another group states.
+- Nothing is saved until both steps have answered: a failed or cancelled run saves no requirements and no gaps. The run's
+  `step` (requirements, gaps) drives the progress list. Cancelling during the requirements step skips the gaps call.
+- Statuses `open`, `resolved`, `dismissed`, with a comment. **Re-run:** open gaps are replaced; resolved and dismissed ones
+  stay with their comment; a new gap with the same text as a kept one is not added again; `G-n` numbers are never reused.
+  Reopening clears the comment.
+- Run totals (tokens, cost) are the sum of both calls; `prompt_version` is `requirements/v1 + gaps/v1`.
 
 ## Trust: the AI is never believed about its own citations
 
@@ -60,5 +79,5 @@ requirements, not "ALL REQUIREMENTS APPROVED".
 
 ## Not built yet
 
-Gaps, contradictions, the findings screens, per-run orchestration of several steps, and the quality evaluation against
-`samples/expected.md` (phase 4, sessions 5–8).
+Contradictions (session 6), per-run orchestration of the remaining steps, and the quality evaluation of requirements and
+gaps against `samples/expected.md` (phase 4, sessions 7–8).

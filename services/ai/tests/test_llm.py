@@ -54,6 +54,10 @@ async def test_returns_text_usage_cost_and_sends_metadata():
             openai.RateLimitError("429", response=httpx.Response(429, request=REQ), body=None),
             LLMRateLimited,
         ),
+        (
+            openai.APIStatusError("408", response=httpx.Response(408, request=REQ), body=None),
+            LLMTimeout,  # LiteLLM's own upstream timeout
+        ),
         (openai.APIConnectionError(request=REQ), LLMProviderError),
         (
             openai.InternalServerError("500", response=httpx.Response(500, request=REQ), body=None),

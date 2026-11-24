@@ -3,6 +3,7 @@ from pathlib import Path
 
 PROMPTS_DIR = Path(__file__).resolve().parents[2] / "prompts"
 REQUIREMENTS_VERSION = "requirements/v1"
+GAPS_VERSION = "gaps/v1"
 
 
 @cache
