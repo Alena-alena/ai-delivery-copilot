@@ -24,7 +24,7 @@ const TASK_SEED = [
   { id: 'T-6', req: 'REQ-006', title: 'Single-clinic configuration', priority: 'Low', status: 'rejected', note: 'Not a task: the constraint only limits scope.',
     desc: 'Hard-code one clinic in version 1.', ac: ['There is no clinic switcher'] },
 ];
-const T = { stage: null, tasks: [], filter: 'all', sel: new Set(), open: null, pick: null };
+const T = { stage: null, tasks: [], filter: 'all', sel: new Set(), open: null, pick: null, nextIssue: 41, failOnce: new Set(['T-4']) };
 const TASK_META = {
   draft: ['', 'Draft'], approved: ['info', 'Approved'], rejected: ['bad', 'Rejected'],
   sending: ['warn work', 'Sending…'], sent: ['ok', 'In Linear'], failed: ['bad', 'Send failed'],
@@ -39,22 +39,23 @@ function seedTasks() {
   T.sel.clear();
   T.open = null;
   T.tasks = TASK_SEED.map((t) => ({ ...t, ac: [...t.ac] }));
+  T.nextIssue = 41;
+  T.failOnce = new Set(['T-4']); // the demo's rate-limited task: fails on its first send only
   if (S.tasks === 'sending') T.tasks.forEach((t) => t.status === 'approved' && (t.status = 'sending'));
   if (S.tasks === 'result') applyResult();
 }
 /** Generate again: unedited drafts are replaced, edited, approved, rejected and sent tasks are kept as they are. */
 function regenerate() {
   const keep = T.tasks.filter((t) => t.edited || t.status !== 'draft');
-  const fresh = TASK_SEED.filter((s) => !keep.some((k) => k.id === s.id)).map((t) => ({ ...t, ac: [...t.ac], status: 'draft' }));
+  const fresh = TASK_SEED.filter((s) => !keep.some((k) => k.id === s.id)).map((t) => ({ ...t, ac: [...t.ac], status: 'draft', outdated: false }));
   T.tasks = [...keep, ...fresh].sort((a, b) => Number(a.id.slice(2)) - Number(b.id.slice(2)));
   T.stage = S.tasks;
 }
 function applyResult() {
-  const ids = { 'T-1': 'CLB-41', 'T-3': 'CLB-42' };
   T.tasks.forEach((t) => {
     if (t.status !== 'approved' && t.status !== 'sending') return;
-    if (ids[t.id]) Object.assign(t, { status: 'sent', linear: ids[t.id] });
-    else Object.assign(t, { status: 'failed', error: 'Linear is rate-limiting requests (429). Tried 3 times.' });
+    if (T.failOnce.delete(t.id)) Object.assign(t, { status: 'failed', error: 'Linear is rate-limiting requests (429). Tried 3 times.' });
+    else Object.assign(t, { status: 'sent', linear: `CLB-${T.nextIssue++}`, error: null });
   });
 }
 
@@ -91,7 +92,7 @@ function generatePanel() {
     <span class="faint" style="margin-left:10px">About 6,000 tokens · estimated $0.005 · under a minute</span></div>`;
 }
 function generating() {
-  return `<div class="card" style="padding:var(--pad)"><h2 style="font-size:1.2em">Generating tasks for ${T.pick ? T.pick.size : 4} requirements</h2>
+  return `<div class="card" style="padding:var(--pad)"><h2 style="font-size:1.2em">Generating tasks for ${T.pick ? T.pick.size : confirmedReqs().length} requirements</h2>
     <p class="muted" style="margin:6px 0 16px">You can leave this page; the tasks appear here when they are ready.</p>
     <div class="meter" style="margin:0 0 16px"><i style="width:55%"></i></div>
     <button class="btn" data-t="gen-cancel">Cancel</button></div>`;
@@ -258,7 +259,7 @@ document.addEventListener('click', (e) => {
   if (a === 'gen') { S.tasks = T.stage = 'generating'; render(); return later(2500, () => { if (S.tasks === 'generating') { S.tasks = 'review'; seedTasks(); toast('6 tasks generated'); } }); }
   if (a === 'gen-cancel') { S.tasks = T.stage = 'none'; toast('Generation cancelled'); return render(); }
   if (a === 'regen-ask') return regenAskDialog();
-  if (a === 'regen-go') { closeDialog(); S.tasks = T.stage = 'generating'; render(); return later(2500, () => { if (S.tasks === 'generating') { S.tasks = 'review'; regenerate(); toast('Tasks updated'); } }); }
+  if (a === 'regen-go') { T.pick = new Set(confirmedReqs().map((r) => r.id)); closeDialog(); S.tasks = T.stage = 'generating'; render(); return later(2500, () => { if (S.tasks === 'generating') { S.tasks = 'review'; regenerate(); toast('Tasks updated'); } }); }
   if (a === 'send-ask') return sendAskDialog();
   if (a === 'go-settings') { closeDialog(); S.tab = 'settings'; return render(); }
   if (a === 'send-go') {
@@ -278,12 +279,16 @@ document.addEventListener('click', (e) => {
     });
   }
   if (a === 'retry') {
-    T.tasks.forEach((x) => x.status === 'failed' && Object.assign(x, { status: 'sending', error: null }));
+    if (S.linear !== 'ok') return sendAskDialog(); // shows the 'not connected' dialog
+    const ids = T.tasks.filter((x) => x.status === 'failed').map((x) => x.id);
+    ids.forEach((id) => Object.assign(taskById(id), { status: 'sending', error: null }));
+    const stage = S.tasks;
     render();
     return later(1800, () => {
-      let n = 0;
-      T.tasks.forEach((x) => x.status === 'sending' && Object.assign(x, { status: 'sent', linear: `CLB-${43 + n++}` }));
-      toast(`${n} ${n === 1 ? 'issue' : 'issues'} created`);
+      if (S.tasks !== stage) return; // the devbar moved on meanwhile
+      const retried = T.tasks.filter((x) => ids.includes(x.id) && x.status === 'sending');
+      retried.forEach((x) => Object.assign(x, { status: 'sent', linear: `CLB-${T.nextIssue++}` }));
+      toast(`${retried.length} ${retried.length === 1 ? 'issue' : 'issues'} created`);
     });
   }
   if (a === 'test') { toast(S.linear === 'ok' ? 'Connected to Linear' : 'Could not connect to Linear'); return; }
