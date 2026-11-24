@@ -33,8 +33,10 @@ and **Status**.
    stay on the screen, not in a toast.
 8. **Status colours are reserved:** green done, amber in progress or needs attention, red failed or destructive.
    The terracotta accent marks only the primary action, the current place and links.
-9. **Light, dark and phone width** all work. On a phone, secondary table columns hide; nothing scrolls sideways except
-   a filter row.
+9. **One date format:** dates as "24 Nov 2026", date and time as "24 Nov 2026, 15:26" (24-hour), whatever the
+   browser locale. In the app they go through `apps/web/src/lib/format.ts`.
+10. **Light, dark and phone width** all work. On a phone, secondary table columns hide; nothing scrolls sideways except
+    a filter row.
 
 ## Screens
 
