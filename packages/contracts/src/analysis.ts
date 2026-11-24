@@ -130,7 +130,11 @@ export function requirementNumber(n: number): string {
   return `REQ-${String(n).padStart(3, '0')}`;
 }
 
-export const gapTypeSchema = z.enum(['missing_information', 'missing_requirement', 'unclear_wording']);
+export const gapTypeSchema = z.enum([
+  'missing_information',
+  'missing_requirement',
+  'unclear_wording',
+]);
 export const gapSeveritySchema = z.enum(['high', 'medium', 'low']);
 /** open: needs an answer. resolved: answered (a note says how). dismissed: not a problem (a note says why). */
 export const findingStatusSchema = z.enum(['open', 'resolved', 'dismissed']);

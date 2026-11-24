@@ -21,7 +21,7 @@ pg-boss worker (in the API process) ───────────┘
 - **One active run per project.** A partial unique index on `analysis_runs(project_id)` for `queued`/`running` makes two
   simultaneous starts safe; the second answers 409 `ANALYSIS_ALREADY_RUNNING`.
 - **No automatic retries.** Every attempt costs money, so a failed run is recorded (`error_code`) and the user decides to
-  run it again. The AI service retries only an *invalid JSON answer*, once.
+  run it again. The AI service retries only an _invalid JSON answer_, once.
 - **Statuses.** The run has its own state machine (`queued`, `running`, `succeeded`, `failed`, `cancelled`), separate
   from document statuses (Q02). A requirement is `ai_suggested`, `confirmed`, `needs_clarification` or `rejected` (Q01);
   `edited_by_user` is a separate flag. Only confirmed requirements become tasks (phase 5).
@@ -39,7 +39,7 @@ severity, a text and a ready **question for the client**.
 - The gaps call sees all documents and the requirements as `R1, R2…` refs (`prompts/gaps/v1.md`). The AI service drops
   refs it was not given and repeated gaps. The API turns refs into REQ numbers after saving, so a gap can point at a kept
   requirement as well as a new one. A gap with no refs is shown as "Absent from the documents".
-- A gap claims something is *missing*, so the documents are never split into groups: if they do not fit one call
+- A gap claims something is _missing_, so the documents are never split into groups: if they do not fit one call
   (60,000 tokens) the run fails with `ANALYSIS_TOO_LARGE` rather than report something "absent" that another group states.
 - Nothing is saved until both steps have answered: a failed or cancelled run saves no requirements and no gaps. The run's
   `step` (requirements, gaps) drives the progress list. Cancelling during the requirements step skips the gaps call.

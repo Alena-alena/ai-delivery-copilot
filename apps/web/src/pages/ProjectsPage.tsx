@@ -6,6 +6,7 @@ import ProjectFormDialog from '@/components/ProjectFormDialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useProjects } from '@/lib/projects';
+import { formatDate } from '@/lib/format';
 
 export default function ProjectsPage() {
   const { data, isPending, error, refetch } = useProjects();
@@ -70,9 +71,7 @@ export default function ProjectsPage() {
                 <p className="line-clamp-2 min-h-10 text-muted-foreground">
                   {p.description ?? 'No description'}
                 </p>
-                <p className="text-xs text-muted-foreground">
-                  Updated {new Date(p.updatedAt).toLocaleDateString()}
-                </p>
+                <p className="text-xs text-muted-foreground">Updated {formatDate(p.updatedAt)}</p>
                 <div className="mt-2 flex gap-2">
                   <Button variant="outline" size="sm" onClick={() => setEditing(p)}>
                     Edit

@@ -142,15 +142,15 @@ function project() {
 
 /* ---- Usage page: LLM calls and their cost ---- */
 const CALLS = [
-  ['2026-11-17 12:47', 'debug.complete', 'gpt-5.6-luna', 11, 4, 0.000007, 3.0, '9af30945'],
-  ['2026-11-17 11:22', 'analysis.contradictions', 'gpt-5.6-luna', 12040, 940, 0.0069, 27.1, 'b7d1c0aa'],
-  ['2026-11-17 11:21', 'analysis.gaps', 'gpt-5.6-luna', 9210, 1320, 0.0061, 22.5, 'b7d1c0aa'],
-  ['2026-11-17 11:20', 'analysis.requirements', 'gpt-5.6-luna', 18420, 2150, 0.0112, 41.8, 'b7d1c0aa'],
-  ['2026-11-17 11:19', 'analysis.requirements', 'gpt-5.6-luna', 17980, 1890, 0.0104, 38.2, 'b7d1c0aa'],
-  ['2026-11-16 16:03', 'tasks.generate', 'gpt-5.6-luna', 6120, 1480, 0.0049, 19.4, 'e41a77f2'],
-  ['2026-11-16 11:06', 'debug.complete', 'gpt-5.6-luna', 9, 4, 0.0000066, 2.4, 'fix-check-1'],
-  ['2026-11-16 11:04', 'debug.complete', 'gpt-5.6-luna', 30, 11, 0.0000352, 3.9, 'cfg-check'],
-  ['2026-11-16 10:50', 'debug.complete', 'gpt-5.6-luna', 9, 4, 0.0000066, 2.2, '66fbecef'],
+  ['17 Nov 2026, 12:47', 'debug.complete', 'gpt-5.6-luna', 11, 4, 0.000007, 3.0, '9af30945'],
+  ['17 Nov 2026, 11:22', 'analysis.contradictions', 'gpt-5.6-luna', 12040, 940, 0.0069, 27.1, 'b7d1c0aa'],
+  ['17 Nov 2026, 11:21', 'analysis.gaps', 'gpt-5.6-luna', 9210, 1320, 0.0061, 22.5, 'b7d1c0aa'],
+  ['17 Nov 2026, 11:20', 'analysis.requirements', 'gpt-5.6-luna', 18420, 2150, 0.0112, 41.8, 'b7d1c0aa'],
+  ['17 Nov 2026, 11:19', 'analysis.requirements', 'gpt-5.6-luna', 17980, 1890, 0.0104, 38.2, 'b7d1c0aa'],
+  ['16 Nov 2026, 16:03', 'tasks.generate', 'gpt-5.6-luna', 6120, 1480, 0.0049, 19.4, 'e41a77f2'],
+  ['16 Nov 2026, 11:06', 'debug.complete', 'gpt-5.6-luna', 9, 4, 0.0000066, 2.4, 'fix-check-1'],
+  ['16 Nov 2026, 11:04', 'debug.complete', 'gpt-5.6-luna', 30, 11, 0.0000352, 3.9, 'cfg-check'],
+  ['16 Nov 2026, 10:50', 'debug.complete', 'gpt-5.6-luna', 9, 4, 0.0000066, 2.2, '66fbecef'],
 ];
 const money = (n) => '$' + (n < 0.01 ? n.toPrecision(2) : n.toFixed(4));
 const num = (n) => n.toLocaleString('en-US');
