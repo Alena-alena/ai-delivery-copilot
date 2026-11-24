@@ -2,9 +2,6 @@
    approve them, send to Linear with a confirmation, partial failure and retry of the failed ones.
    Fake data. Throwaway code: only the decisions it produces are kept (docs/design/screens.md). */
 
-// The tasks below come from these requirements, so the demo treats them as confirmed.
-['REQ-001', 'REQ-003'].forEach((id) => (reqById(id).status = 'confirmed'));
-
 const LINEAR = { team: 'ClinicBook (CLB)', project: 'Patient app v1', workspace: 'Acme Studio' };
 
 // status: draft, approved, rejected, sending, sent, failed
@@ -44,6 +41,13 @@ function seedTasks() {
   T.tasks = TASK_SEED.map((t) => ({ ...t, ac: [...t.ac] }));
   if (S.tasks === 'sending') T.tasks.forEach((t) => t.status === 'approved' && (t.status = 'sending'));
   if (S.tasks === 'result') applyResult();
+}
+/** Generate again: unedited drafts are replaced, edited, approved, rejected and sent tasks are kept as they are. */
+function regenerate() {
+  const keep = T.tasks.filter((t) => t.edited || t.status !== 'draft');
+  const fresh = TASK_SEED.filter((s) => !keep.some((k) => k.id === s.id)).map((t) => ({ ...t, ac: [...t.ac], status: 'draft' }));
+  T.tasks = [...keep, ...fresh].sort((a, b) => Number(a.id.slice(2)) - Number(b.id.slice(2)));
+  T.stage = S.tasks;
 }
 function applyResult() {
   const ids = { 'T-1': 'CLB-41', 'T-3': 'CLB-42' };
@@ -87,7 +91,7 @@ function generatePanel() {
     <span class="faint" style="margin-left:10px">About 6,000 tokens · estimated $0.005 · under a minute</span></div>`;
 }
 function generating() {
-  return `<div class="card" style="padding:var(--pad)"><h2 style="font-size:1.2em">Generating tasks for 4 requirements</h2>
+  return `<div class="card" style="padding:var(--pad)"><h2 style="font-size:1.2em">Generating tasks for ${T.pick ? T.pick.size : 4} requirements</h2>
     <p class="muted" style="margin:6px 0 16px">You can leave this page; the tasks appear here when they are ready.</p>
     <div class="meter" style="margin:0 0 16px"><i style="width:55%"></i></div>
     <button class="btn" data-t="gen-cancel">Cancel</button></div>`;
@@ -114,9 +118,9 @@ function taskList() {
     <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">
       <div class="seg2">${filt.map(([k, l]) => `<button class="${f === k ? 'on' : ''}" data-t="filter" data-v="${k}">${l} ${n(k)}</button>`).join('')}</div>
       ${selN ? `<span class="sp"></span><span class="muted">${selN} selected</span><button class="btn sm primary" data-t="bulk" data-v="approved">Approve selected</button><button class="btn sm" data-t="bulk" data-v="rejected">Reject selected</button><button class="btn sm ghost" data-t="bulk-clear">Clear</button>` : ''}</div>
-    ${groups.map((g) => groupHtml(g, f)).join('') || ''}
+    ${groups.map((g) => groupHtml(g, f)).join('') || '<div class="card empty" style="padding:24px">No tasks with this status.</div>'}
     <div class="readybar card"><span><b>${ready}</b> ${ready === 1 ? 'task is' : 'tasks are'} approved and ready to send</span><span class="sp"></span>
-      <span class="faint hide-sm">${LINEAR.team} · ${LINEAR.project}</span>
+      <span class="faint hide-sm">${S.linear === 'ok' ? `${LINEAR.team} · ${LINEAR.project}` : 'Linear is not connected'}</span>
       <button class="btn primary" data-t="send-ask" ${ready && !sending ? '' : 'disabled'}>Send to Linear (${ready})</button></div>
     ${T.open ? taskSheet(taskById(T.open)) : ''}`;
 }
@@ -215,8 +219,14 @@ function readSheet(t) {
   t.title = $('#t-title').value.trim() || t.title;
   t.desc = $('#t-desc').value;
   t.priority = $('#t-prio').value;
-  t.ac = [...document.querySelectorAll('[data-ac]')].map((i) => i.value.trim()).filter(Boolean);
-  if (!t.ac.length) t.ac = ['(add a criterion)'];
+  t.ac = [...document.querySelectorAll('[data-ac]')].map((i) => i.value.trim()); // blanks stay while editing
+}
+/** Saving or approving needs at least one criterion; blank rows are dropped only then. */
+function commitAc(t) {
+  const ac = t.ac.filter(Boolean);
+  if (!ac.length) { toast('Add at least one acceptance criterion'); render(); return false; }
+  t.ac = ac;
+  return true;
 }
 function later(ms, fn) { setTimeout(() => { fn(); render(); }, ms); }
 document.addEventListener('click', (e) => {
@@ -233,9 +243,9 @@ document.addEventListener('click', (e) => {
   if (a === 'open-req') { T.open = null; S.tab = 'analysis'; A.sub = 'reqs'; A.open = v; return render(); }
   if (a === 'ac-add') { readSheet(t); t.ac.push(''); render(); const ins = document.querySelectorAll('[data-ac]'); ins[ins.length - 1].focus(); return; }
   if (a === 'ac-del') { readSheet(t); t.ac.splice(Number(v), 1); return render(); }
-  if (a === 'save') { readSheet(t); t.edited = true; toast(`${t.id} saved`); return render(); }
+  if (a === 'save') { readSheet(t); if (!commitAc(t)) return; t.edited = true; toast(`${t.id} saved`); return render(); }
   if (a === 'set') {
-    if (v !== 'rejected' && t.status !== 'rejected') readSheet(t);
+    if (v !== 'rejected' && t.status !== 'rejected') { readSheet(t); if (!commitAc(t)) return; }
     t.status = v; t.outdated = false; T.open = null;
     toast(`${t.id}: ${TASK_META[v][1]}`); return render();
   }
@@ -248,7 +258,7 @@ document.addEventListener('click', (e) => {
   if (a === 'gen') { S.tasks = T.stage = 'generating'; render(); return later(2500, () => { if (S.tasks === 'generating') { S.tasks = 'review'; seedTasks(); toast('6 tasks generated'); } }); }
   if (a === 'gen-cancel') { S.tasks = T.stage = 'none'; toast('Generation cancelled'); return render(); }
   if (a === 'regen-ask') return regenAskDialog();
-  if (a === 'regen-go') { closeDialog(); S.tasks = T.stage = 'generating'; render(); return later(2500, () => { S.tasks = 'review'; seedTasks(); toast('Tasks updated'); }); }
+  if (a === 'regen-go') { closeDialog(); S.tasks = T.stage = 'generating'; render(); return later(2500, () => { if (S.tasks === 'generating') { S.tasks = 'review'; regenerate(); toast('Tasks updated'); } }); }
   if (a === 'send-ask') return sendAskDialog();
   if (a === 'go-settings') { closeDialog(); S.tab = 'settings'; return render(); }
   if (a === 'send-go') {
@@ -256,9 +266,11 @@ document.addEventListener('click', (e) => {
     D.busy = true; paintDialog();
     return later(700, () => {
       D = null; paintDialog();
+      if (S.tasks !== 'review' && S.tasks !== 'result') return; // the devbar moved on meanwhile
       T.tasks.forEach((x) => x.status === 'approved' && (x.status = 'sending'));
       S.tasks = T.stage = 'sending';
       later(2500, () => {
+        if (S.tasks !== 'sending') return;
         applyResult(); S.tasks = T.stage = 'result';
         const c = (s) => T.tasks.filter((x) => x.status === s).length;
         toast(`${c('sent')} issues created, ${c('failed')} failed`);
@@ -268,7 +280,11 @@ document.addEventListener('click', (e) => {
   if (a === 'retry') {
     T.tasks.forEach((x) => x.status === 'failed' && Object.assign(x, { status: 'sending', error: null }));
     render();
-    return later(1800, () => { T.tasks.forEach((x) => x.status === 'sending' && Object.assign(x, { status: 'sent', linear: 'CLB-43' })); toast('1 issue created'); });
+    return later(1800, () => {
+      let n = 0;
+      T.tasks.forEach((x) => x.status === 'sending' && Object.assign(x, { status: 'sent', linear: `CLB-${43 + n++}` }));
+      toast(`${n} ${n === 1 ? 'issue' : 'issues'} created`);
+    });
   }
   if (a === 'test') { toast(S.linear === 'ok' ? 'Connected to Linear' : 'Could not connect to Linear'); return; }
   if (a === 'settings-save') { toast('Settings saved'); return; }
