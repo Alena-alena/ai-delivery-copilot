@@ -4,22 +4,13 @@
     {
       "name": "dev",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": [
-        "run",
-        "dev"
-      ],
+      "runtimeArgs": ["run", "dev"],
       "port": 3000
     },
     {
       "name": "prototype",
       "runtimeExecutable": "python3",
-      "runtimeArgs": [
-        "-m",
-        "http.server",
-        "5180",
-        "--directory",
-        "prototype"
-      ],
+      "runtimeArgs": ["-m", "http.server", "5180", "--directory", "prototype"],
       "port": 5180
     }
   ]

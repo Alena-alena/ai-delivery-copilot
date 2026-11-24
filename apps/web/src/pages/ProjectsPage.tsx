@@ -71,7 +71,12 @@ export default function ProjectsPage() {
                   {p.description ?? 'No description'}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  Updated {new Date(p.updatedAt).toLocaleDateString()}
+                  Updated{' '}
+                  {new Date(p.updatedAt).toLocaleDateString('en-GB', {
+                    day: 'numeric',
+                    month: 'short',
+                    year: 'numeric',
+                  })}
                 </p>
                 <div className="mt-2 flex gap-2">
                   <Button variant="outline" size="sm" onClick={() => setEditing(p)}>

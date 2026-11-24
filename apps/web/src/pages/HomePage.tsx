@@ -50,7 +50,7 @@ export default function HomePage() {
           ) : health.error ? (
             <Badge variant="destructive">down</Badge>
           ) : (
-            <Badge>{health.data.status}</Badge>
+            <Badge variant="success">{health.data.status}</Badge>
           )}
         </CardContent>
       </Card>

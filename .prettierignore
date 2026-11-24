@@ -5,3 +5,8 @@ pnpm-lock.yaml
 samples
 .venv
 apps/api/drizzle/
+
+# Throwaway design reference, not production code (see prototype/README.md)
+prototype
+# LLM prompts: their exact text is versioned input to the model
+services/ai/prompts

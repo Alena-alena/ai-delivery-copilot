@@ -268,8 +268,8 @@ def test_a_group_never_exceeds_the_budget_even_when_earlier_documents_filled_it(
 
 # ---- gaps ----
 
-from app.analysis.gaps import GapsInputTooLarge, find_gaps  # noqa: E402
-from app.analysis.schemas import RequirementRef  # noqa: E402
+from app.analysis.gaps import GapsInputTooLarge, find_gaps
+from app.analysis.schemas import RequirementRef
 
 REQ_REFS = [RequirementRef(ref="R1", title="Online booking", description="Patients manage appointments.")]
 
