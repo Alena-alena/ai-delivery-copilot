@@ -20,7 +20,8 @@ export class PgBossAnalysisJobs extends AnalysisJobs implements OnModuleInit {
     await boss.createQueue(ANALYSIS_QUEUE, {
       // No automatic retry: every attempt costs money, and the user decides to try again.
       retryLimit: 0,
-      // A run still "active" after this long (a crashed API) is released; the runner then marks it failed.
+      // A job still active after this long (a crashed API) expires. It is not retried (retryLimit 0); the run row is
+      // recovered by AnalysisService.failStaleRuns, which must wait longer than this.
       expireInSeconds: 1200,
     });
     await boss.work<

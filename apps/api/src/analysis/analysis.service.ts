@@ -29,6 +29,9 @@ import {
 import { ProjectAccessService } from '../projects/project-access.service.js';
 import { AnalysisJobs } from './analysis-jobs.js';
 
+/** A queued or running run older than this is dead (its job expires after 20 minutes): it is marked failed. */
+export const STALE_RUN_MINUTES = 30;
+
 type RunRow = typeof analysisRuns.$inferSelect;
 type RequirementRow = typeof requirements.$inferSelect;
 
@@ -66,9 +69,31 @@ export class AnalysisService {
     @Inject(ConfigService) private readonly config: ConfigService<Env, true>,
   ) {}
 
+  /**
+   * A crash or restart can leave a run "running" for ever, and an active run blocks the next one (unique index).
+   * Anything older than STALE_RUN_MINUTES is marked failed, so the user can try again.
+   */
+  private async failStaleRuns(projectId: string): Promise<void> {
+    await this.db
+      .update(analysisRuns)
+      .set({
+        status: 'failed',
+        errorCode: 'ANALYSIS_FAILED',
+        finishedAt: sql`now()`,
+      })
+      .where(
+        and(
+          eq(analysisRuns.projectId, projectId),
+          inArray(analysisRuns.status, ['queued', 'running']),
+          sql`${analysisRuns.createdAt} < now() - make_interval(mins => ${STALE_RUN_MINUTES})`,
+        ),
+      );
+  }
+
   /** The latest run and what a new run would read (and what it would skip, with the reason). */
   async overview(userId: string, projectId: string): Promise<AnalysisOverview> {
     await this.access.requireProject(userId, projectId);
+    await this.failStaleRuns(projectId);
     const [run] = await this.db
       .select()
       .from(analysisRuns)
@@ -109,6 +134,7 @@ export class AnalysisService {
   /** Creates a queued run and queues its execution. One active run per project (a unique index enforces it). */
   async start(userId: string, projectId: string): Promise<AnalysisRun> {
     await this.access.requireProject(userId, projectId);
+    await this.failStaleRuns(projectId);
     const [ready] = await this.db
       .select({ n: sql<number>`count(*)::int` })
       .from(documents)
