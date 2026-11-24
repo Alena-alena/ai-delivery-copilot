@@ -1,7 +1,7 @@
 # Delivery Copilot
 
 Monorepo for the AI Project Delivery Copilot MVP. The plan, phases and questions live in the roadmap artifact:
-https://claude.ai/artifact/7x2Uv2SkSpEDijn27vCkxq
+https://claude.ai/artifact/SfwECdXSw6nFdQfdLe78ih (the "Delivery Copilot" section, `#project`, of Olena Hub; progress ticks live in its `progress` db collection, ids like `pds5t2`)
 
 The user is learning while building. At the end of every roadmap phase (all session tasks done), offer to run
 `/phase-quiz <phase>` before starting the next phase.

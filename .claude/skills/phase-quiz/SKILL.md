@@ -11,7 +11,7 @@ built, not to recite documentation. Phase = `$ARGUMENTS` (if empty, use the most
 
 ## 1. Gather material (do this silently, then start)
 
-- Roadmap artifact: https://claude.ai/artifact/7x2Uv2SkSpEDijn27vCkxq. Read it with the Artifact tool
+- Roadmap artifact: https://claude.ai/artifact/SfwECdXSw6nFdQfdLe78ih (the "Delivery Copilot" section, `#project`, of Olena Hub; progress ticks live in its `progress` db collection, ids like `pds5t2`). Read it with the Artifact tool
   and take that phase's "Ключевые концепции фазы" and every session's "Learning check" questions.
 - Her earlier notes: `ArtifactData` list collection `quiz` (ids look like `p1s2c1`). Skip questions she
   already marked `known`; revisit ones with weak or empty notes.
