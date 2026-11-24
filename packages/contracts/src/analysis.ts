@@ -18,6 +18,10 @@ export const analysisRunStatusSchema = z.enum([
   'cancelled',
 ]);
 
+/** The steps of a run, in order. Contradictions will follow the gaps. */
+export const analysisStepSchema = z.enum(['requirements', 'gaps']);
+export type AnalysisStep = z.infer<typeof analysisStepSchema>;
+
 export type RequirementType = z.infer<typeof requirementTypeSchema>;
 export type Priority = z.infer<typeof prioritySchema>;
 export type Confidence = z.infer<typeof confidenceSchema>;
@@ -33,6 +37,8 @@ export const ANALYSIS_ERROR_MESSAGES = {
   ANALYSIS_BUSY: 'The AI service is busy right now. Try again in a minute.',
   ANALYSIS_INVALID_RESPONSE:
     'The AI returned an answer that could not be used. Try again; if it repeats, the documents may be too unusual.',
+  ANALYSIS_TOO_LARGE:
+    'The documents are too large to look for gaps in one pass. Remove a document you do not need and try again.',
   ANALYSIS_FAILED: 'The analysis failed. Try again in a moment.',
 } as const;
 export type AnalysisErrorCode = keyof typeof ANALYSIS_ERROR_MESSAGES;
@@ -53,6 +59,9 @@ export const analysisRunSchema = z.object({
   completionTokens: z.number().int(),
   costUsd: z.number(),
   requirementsFound: z.number().int(),
+  gapsFound: z.number().int(),
+  /** The step a queued or running run is on. */
+  step: analysisStepSchema.nullable(),
   documentCount: z.number().int(),
   errorCode: z.string().nullable(),
   createdAt: z.iso.datetime(),
@@ -119,4 +128,42 @@ export type ConfirmRequirementsInput = z.infer<typeof confirmRequirementsSchema>
 
 export function requirementNumber(n: number): string {
   return `REQ-${String(n).padStart(3, '0')}`;
+}
+
+export const gapTypeSchema = z.enum(['missing_information', 'missing_requirement', 'unclear_wording']);
+export const gapSeveritySchema = z.enum(['high', 'medium', 'low']);
+/** open: needs an answer. resolved: answered (a note says how). dismissed: not a problem (a note says why). */
+export const findingStatusSchema = z.enum(['open', 'resolved', 'dismissed']);
+export type GapType = z.infer<typeof gapTypeSchema>;
+export type GapSeverity = z.infer<typeof gapSeveritySchema>;
+export type FindingStatus = z.infer<typeof findingStatusSchema>;
+
+export const gapSchema = z.object({
+  id: z.uuid(),
+  projectId: z.uuid(),
+  /** Shown as G-001; unique inside the project. */
+  number: z.number().int(),
+  type: gapTypeSchema,
+  severity: gapSeveritySchema,
+  text: z.string(),
+  /** A ready question to send to the client. */
+  question: z.string(),
+  /** REQ numbers the gap is about. Empty: the topic is absent from the documents. */
+  requirementNumbers: z.array(z.number().int()),
+  status: findingStatusSchema,
+  note: z.string(),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+});
+export type Gap = z.infer<typeof gapSchema>;
+
+/** PATCH /api/projects/:id/gaps/:gapId. Resolving or dismissing may carry a comment; reopening clears it. */
+export const updateGapSchema = z.object({
+  status: findingStatusSchema,
+  note: z.string().trim().max(2000).optional(),
+});
+export type UpdateGapInput = z.infer<typeof updateGapSchema>;
+
+export function gapNumber(n: number): string {
+  return `G-${String(n).padStart(3, '0')}`;
 }

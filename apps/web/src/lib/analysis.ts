@@ -2,7 +2,9 @@ import type {
   AnalysisOverview,
   AnalysisRun,
   ConfirmRequirementsInput,
+  Gap,
   Requirement,
+  UpdateGapInput,
   UpdateRequirementInput,
 } from '@copilot/contracts';
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
@@ -11,6 +13,7 @@ import { apiGet, apiPatch, apiPost } from '@/lib/api';
 export const analysisKeys = {
   overview: (projectId: string) => ['projects', projectId, 'analysis'] as const,
   requirements: (projectId: string) => ['projects', projectId, 'requirements'] as const,
+  gaps: (projectId: string) => ['projects', projectId, 'gaps'] as const,
 };
 
 const ACTIVE = new Set<AnalysisRun['status']>(['queued', 'running']);
@@ -18,7 +21,7 @@ export const isActive = (run: AnalysisRun | null | undefined) => !!run && ACTIVE
 
 /**
  * The overview query. It polls every 2 s while a run is queued or running, and when a poll sees the run
- * finish it also invalidates the requirements: they were saved by the worker, and the list on screen was
+ * finish it also invalidates the requirements and gaps: they were saved by the worker, and the list on screen was
  * read before they existed.
  */
 export function overviewQueryOptions(qc: QueryClient, projectId: string) {
@@ -29,6 +32,7 @@ export function overviewQueryOptions(qc: QueryClient, projectId: string) {
       const next = await apiGet<AnalysisOverview>(`/projects/${projectId}/analysis`);
       if (isActive(before) && !isActive(next.run)) {
         void qc.invalidateQueries({ queryKey: analysisKeys.requirements(projectId) });
+        void qc.invalidateQueries({ queryKey: analysisKeys.gaps(projectId) });
       }
       return next;
     },
@@ -49,6 +53,13 @@ export function useRequirements(projectId: string) {
   });
 }
 
+export function useGaps(projectId: string) {
+  return useQuery({
+    queryKey: analysisKeys.gaps(projectId),
+    queryFn: () => apiGet<Gap[]>(`/projects/${projectId}/gaps`),
+  });
+}
+
 /** After a run finishes the list must be re-read; the overview poll tells us when. */
 function useRefresh(projectId: string) {
   const qc = useQueryClient();
@@ -56,6 +67,7 @@ function useRefresh(projectId: string) {
     Promise.all([
       qc.invalidateQueries({ queryKey: analysisKeys.overview(projectId) }),
       qc.invalidateQueries({ queryKey: analysisKeys.requirements(projectId) }),
+      qc.invalidateQueries({ queryKey: analysisKeys.gaps(projectId) }),
     ]);
 }
 
@@ -96,6 +108,18 @@ export function useConfirmRequirements(projectId: string) {
     onSuccess: (updated) =>
       qc.setQueryData<Requirement[]>(analysisKeys.requirements(projectId), (list) =>
         list?.map((r) => updated.find((u) => u.id === r.id) ?? r),
+      ),
+  });
+}
+
+export function useUpdateGap(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...input }: UpdateGapInput & { id: string }) =>
+      apiPatch<Gap>(`/projects/${projectId}/gaps/${id}`, input),
+    onSuccess: (updated) =>
+      qc.setQueryData<Gap[]>(analysisKeys.gaps(projectId), (list) =>
+        list?.map((g) => (g.id === updated.id ? updated : g)),
       ),
   });
 }
